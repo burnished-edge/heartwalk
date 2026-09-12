@@ -3,1378 +3,261 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Heart Walk TeamRaiser Data Exporter</title>
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Lucide Icons CDN -->
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <title>Heart Walk Leaderboard & Data Explorer</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --red: #ef4444;
+      --accent: #38bdf8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: 'Inter', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px;
+      line-height: 1.5;
     }
-    pre, code, .font-mono {
-      font-family: 'JetBrains Mono', monospace;
+    .container { max-width: 1200px; margin: 0 auto; }
+    header { margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px; }
+    h1 { font-size: 24px; font-weight: 700; color: #fff; }
+    .timestamp { font-size: 13px; color: var(--muted); }
+    
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 18px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s;
     }
-    .scrollbar-thin::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
+    .tab-btn.active { background: var(--red); border-color: var(--red); color: white; }
+    
+    .toolbar { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .search-box {
+      flex: 1;
+      min-width: 260px;
+      padding: 9px 14px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: white;
+      font-size: 14px;
     }
-    .scrollbar-thin::-webkit-scrollbar-thumb {
-      background-color: #cbd5e1;
-      border-radius: 9999px;
+    .search-box:focus { outline: none; border-color: var(--accent); }
+    
+    .table-container {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow-x: auto;
     }
-    .scrollbar-thin::-webkit-scrollbar-track {
-      background-color: #f1f5f9;
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+    th {
+      background: #182234;
+      padding: 12px 16px;
+      font-weight: 600;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
     }
-    @keyframes pulse-subtle {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
+    th:hover { color: white; }
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
     }
-    .animate-pulse-subtle {
-      animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255, 255, 255, 0.02); }
+    .amount { font-weight: 600; color: #4ade80; font-family: monospace; font-size: 15px; }
+    .status-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      font-size: 12px;
+      border-radius: 4px;
+      background: #334155;
+      color: var(--text);
     }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen pb-16">
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 to-red-500 flex items-center justify-center text-white shadow-md shadow-rose-200">
-          <i data-lucide="heart" class="w-6 h-6 fill-current"></i>
-        </div>
-        <div>
-          <h1 class="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            Heart Walk Data Hub
-            <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200">TeamRaiser API</span>
-          </h1>
-          <p class="text-xs text-slate-500">Extract Walkers, Teams, &amp; Companies directly to structured JSON</p>
-        </div>
-      </div>
-      <div class="flex items-center space-x-2 text-xs">
-        <span id="connectionBadge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-600 font-medium border border-slate-200">
-          <span class="w-2 h-2 rounded-full bg-slate-400"></span> Ready to extract
-        </span>
-      </div>
+<body>
+
+<div class="container">
+  <header>
+    <div>
+      <h1>AHA Heart Walk Data Explorer</h1>
+      <div id="statusText" class="timestamp">Loading data...</div>
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-6">
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('walkers')">Walkers (<span id="countWalkers">0</span>)</button>
+    <button class="tab-btn" onclick="switchTab('teams')">Teams (<span id="countTeams">0</span>)</button>
+    <button class="tab-btn" onclick="switchTab('companies')">Companies (<span id="countCompanies">0</span>)</button>
+  </div>
 
-    <!-- Overview / Quick Notice Banner -->
-    <div class="bg-gradient-to-r from-red-50 via-white to-slate-50 border border-rose-200 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
-      <div class="flex items-start space-x-3">
-        <div class="p-2 bg-rose-100 rounded-lg text-rose-600 shrink-0">
-          <i data-lucide="info" class="w-5 h-5"></i>
-        </div>
-        <div>
-          <h2 class="text-sm font-semibold text-slate-900">Direct Client-Side Convio / TeamRaiser Collector</h2>
-          <p class="text-xs text-slate-600 mt-0.5 max-w-3xl leading-relaxed">
-            Requests queries using wildcard parameters (<code class="bg-rose-50 text-rose-800 px-1 py-0.5 rounded text-[11px]">%</code>) through official endpoints, converts cents into computed dollar fields (<code class="bg-rose-50 text-rose-800 px-1 py-0.5 rounded text-[11px]">amountRaisedDollars</code>), and aggregates records into one unified JSON payload.
-          </p>
-        </div>
-      </div>
-      <div class="flex items-center gap-2 shrink-0">
-        <button id="quickSampleBtn" type="button" class="px-3 py-2 text-xs font-medium rounded-lg text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition shadow-2xs flex items-center gap-1.5">
-          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Reset Defaults
-        </button>
-      </div>
-    </div>
+  <div class="toolbar">
+    <input type="text" id="searchInput" class="search-box" placeholder="Search by name, team, company..." oninput="handleSearch()">
+  </div>
 
-    <!-- Configuration & Parameters Panel -->
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-      <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
-        <div class="flex items-center space-x-2 text-slate-800 font-semibold text-sm">
-          <i data-lucide="sliders-horizontal" class="w-4 h-4 text-slate-500"></i>
-          <span>API Connection &amp; Query Settings</span>
-        </div>
-        <span class="text-xs text-slate-400">Event ID: <strong id="headerEventBadge" class="text-slate-700 font-mono">13179</strong></span>
-      </div>
+  <div class="table-container">
+    <table id="dataTable">
+      <thead id="tableHead"></thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+</div>
 
-      <div class="p-6 space-y-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1" for="apiKeyInput">
-              API Key (Registered Token)
-            </label>
-            <div class="relative">
-              <input type="text" id="apiKeyInput" value="wDB09SQODRpVIOvX"
-                     class="w-full px-3 py-2 text-sm font-mono rounded-lg border border-slate-300 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition shadow-2xs outline-hidden"
-                     placeholder="API Key">
-              <button id="toggleKeyVisibility" type="button" class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600" title="Toggle visibility">
-                <i data-lucide="key" class="w-4 h-4"></i>
-              </button>
-            </div>
-            <p class="text-[11px] text-slate-500 mt-1">Verified Heart Walk public client key</p>
-          </div>
+<script>
+  let rawData = { walkers: [], teams: [], companies: [] };
+  let currentTab = 'walkers';
+  let sortColumn = 'amount';
+  let sortAscending = false;
 
-          <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1" for="eventIdInput">
-              Event ID (fr_id)
-            </label>
-            <input type="text" id="eventIdInput" value="13179"
-                   class="w-full px-3 py-2 text-sm font-mono rounded-lg border border-slate-300 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition shadow-2xs outline-hidden"
-                   placeholder="13179">
-            <p class="text-[11px] text-slate-500 mt-1">Extracted from <code class="text-slate-600 font-mono">fr_id=13179</code></p>
-          </div>
+  async function loadData() {
+    try {
+      const res = await fetch('./heartwalk_data.json');
+      if (!res.ok) throw new Error("Could not find heartwalk_data.json. Run the workflow/script first.");
+      const json = await res.json();
+      
+      rawData.walkers = (json.walkers || []).map(w => ({
+        name: `${w.name?.first || ''} ${w.name?.last || ''}`.trim(),
+        team: w.teamName || '—',
+        amount: parseFloat(w.amountRaised || 0) / 100,
+        goal: parseFloat(w.goal || 0) / 100,
+        id: w.consId
+      }));
 
-          <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1" for="pageSizeInput">
-              Page Size (list_page_size)
-            </label>
-            <input type="number" id="pageSizeInput" value="500" min="50" max="1000" step="50"
-                   class="w-full px-3 py-2 text-sm font-mono rounded-lg border border-slate-300 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition shadow-2xs outline-hidden">
-            <p class="text-[11px] text-slate-500 mt-1">500 is optimal for TeamRaiser batching</p>
-          </div>
+      rawData.teams = (json.teams || []).map(t => ({
+        name: t.name || '—',
+        captain: `${t.captainFirstName || ''} ${t.captainLastName || ''}`.trim(),
+        company: t.companyName || '—',
+        members: parseInt(t.numMembers || 0, 10),
+        amount: parseFloat(t.amountRaised || 0) / 100,
+        goal: parseFloat(t.goal || 0) / 100
+      }));
 
-          <div>
-            <label class="block text-xs font-medium text-slate-700 mb-1" for="rateLimitDelay">
-              Request Pacing Delay (ms)
-            </label>
-            <input type="number" id="rateLimitDelay" value="250" min="0" max="2000" step="50"
-                   class="w-full px-3 py-2 text-sm font-mono rounded-lg border border-slate-300 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition shadow-2xs outline-hidden">
-            <p class="text-[11px] text-slate-500 mt-1">Throttle between pagination loops</p>
-          </div>
-        </div>
+      rawData.companies = (json.companies || []).map(c => ({
+        name: c.companyName || '—',
+        amount: parseFloat(c.amountRaised || 0) / 100,
+        teamCount: parseInt(c.teamCount || 0, 10),
+        walkerCount: parseInt(c.participantCount || 0, 10)
+      }));
 
-        <div>
-          <label class="block text-xs font-medium text-slate-700 mb-1" for="baseUrlInput">
-            Base TeamRaiser API Endpoint
-          </label>
-          <input type="text" id="baseUrlInput" value="https://www2.heart.org/site/CRTeamraiserAPI"
-                 class="w-full px-3 py-2 text-xs font-mono rounded-lg border border-slate-300 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition shadow-2xs outline-hidden">
-        </div>
+      document.getElementById('countWalkers').innerText = rawData.walkers.length;
+      document.getElementById('countTeams').innerText = rawData.teams.length;
+      document.getElementById('countCompanies').innerText = rawData.companies.length;
+      document.getElementById('statusText').innerText = `Last updated: ${json.updated_at || 'Recently'}`;
 
-        <!-- Entity Scope Selection -->
-        <div class="pt-3 border-t border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div class="flex flex-wrap items-center gap-5">
-            <span class="text-xs font-semibold text-slate-700 uppercase tracking-wider">Include Entities:</span>
+      render();
+    } catch (err) {
+      document.getElementById('statusText').innerHTML = `<span style="color:#ef4444">${err.message}</span>`;
+    }
+  }
 
-            <label class="inline-flex items-center space-x-2 text-xs text-slate-700 cursor-pointer font-medium select-none">
-              <input type="checkbox" id="fetchParticipantsChk" checked class="w-4 h-4 text-rose-600 rounded border-slate-300 focus:ring-rose-500 accent-rose-600">
-              <span>Walkers / Participants</span>
-            </label>
+  function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    sortColumn = 'amount';
+    sortAscending = false;
+    render();
+  }
 
-            <label class="inline-flex items-center space-x-2 text-xs text-slate-700 cursor-pointer font-medium select-none">
-              <input type="checkbox" id="fetchTeamsChk" checked class="w-4 h-4 text-rose-600 rounded border-slate-300 focus:ring-rose-500 accent-rose-600">
-              <span>Teams</span>
-            </label>
+  function setSort(col) {
+    if (sortColumn === col) {
+      sortAscending = !sortAscending;
+    } else {
+      sortColumn = col;
+      sortAscending = false;
+    }
+    render();
+  }
 
-            <label class="inline-flex items-center space-x-2 text-xs text-slate-700 cursor-pointer font-medium select-none">
-              <input type="checkbox" id="fetchCompaniesChk" checked class="w-4 h-4 text-rose-600 rounded border-slate-300 focus:ring-rose-500 accent-rose-600">
-              <span>Companies</span>
-            </label>
+  function handleSearch() {
+    render();
+  }
 
-            <label class="inline-flex items-center space-x-2 text-xs text-slate-700 cursor-pointer font-medium select-none">
-              <input type="checkbox" id="fetchTopSummaryChk" checked class="w-4 h-4 text-rose-600 rounded border-slate-300 focus:ring-rose-500 accent-rose-600">
-              <span>Top Leaderboards</span>
-            </label>
-          </div>
+  function render() {
+    const filter = (document.getElementById('searchInput').value || '').toLowerCase();
+    let records = [...rawData[currentTab]];
 
-          <div class="flex items-center gap-3">
-            <button id="cancelBtn" type="button" disabled
-                    class="hidden px-4 py-2 text-xs font-semibold rounded-xl text-rose-700 bg-rose-50 hover:bg-rose-100 transition border border-rose-200 items-center gap-1.5">
-              <i data-lucide="square" class="w-3.5 h-3.5 fill-current"></i> Cancel
-            </button>
-            <button id="startExtractionBtn" type="button"
-                    class="px-5 py-2.5 text-xs font-semibold rounded-xl text-white bg-rose-600 hover:bg-rose-700 transition shadow-md shadow-rose-200 flex items-center gap-2">
-              <i data-lucide="cloud-download" class="w-4 h-4"></i> Start Extraction
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- CORS / Network Fallback Alert (Hidden by default) -->
-    <div id="corsNotice" class="hidden bg-amber-50 border border-amber-200 rounded-2xl p-4 transition-all">
-      <div class="flex items-start space-x-3">
-        <div class="p-1.5 bg-amber-100 rounded-lg text-amber-700 shrink-0">
-          <i data-lucide="alert-triangle" class="w-4 h-4"></i>
-        </div>
-        <div class="text-xs text-amber-800 space-y-1">
-          <h3 class="font-semibold text-amber-900">Direct Browser API Notice (CORS / Mixed-Content)</h3>
-          <p>
-            If your browser environment enforces strict cross-origin policies for <code class="font-mono bg-amber-100/70 px-1 py-0.5 rounded">www2.heart.org</code>, we automatically attempt a seamless fallback gateway or allow you to use a custom proxy. If you experience an origin block:
-          </p>
-          <div class="flex flex-wrap items-center gap-3 pt-2">
-            <label class="inline-flex items-center space-x-1.5 cursor-pointer font-medium text-amber-900">
-              <input type="checkbox" id="useProxyToggle" class="rounded border-amber-300 text-amber-600 accent-amber-600">
-              <span>Route through CORS Gateway helper (<span class="font-mono">corsproxy.io</span>)</span>
-            </label>
-            <button id="testDirectCallBtn" type="button" class="px-2.5 py-1 text-[11px] bg-white border border-amber-300 rounded font-medium text-amber-900 hover:bg-amber-100/50">
-              Ping API Directly
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Progress Status & Live Statistics -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-medium text-slate-500">Walkers / Participants</span>
-          <span class="p-2 rounded-xl bg-blue-50 text-blue-600"><i data-lucide="user" class="w-4 h-4"></i></span>
-        </div>
-        <div class="mt-2 flex items-baseline gap-2">
-          <span id="statWalkers" class="text-2xl font-bold text-slate-900">0</span>
-          <span id="statWalkersProgress" class="text-xs text-slate-400">waiting</span>
-        </div>
-      </div>
-
-      <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-medium text-slate-500">Teams Registered</span>
-          <span class="p-2 rounded-xl bg-purple-50 text-purple-600"><i data-lucide="users" class="w-4 h-4"></i></span>
-        </div>
-        <div class="mt-2 flex items-baseline gap-2">
-          <span id="statTeams" class="text-2xl font-bold text-slate-900">0</span>
-          <span id="statTeamsProgress" class="text-xs text-slate-400">waiting</span>
-        </div>
-      </div>
-
-      <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-medium text-slate-500">Companies Enrolled</span>
-          <span class="p-2 rounded-xl bg-emerald-50 text-emerald-600"><i data-lucide="building-2" class="w-4 h-4"></i></span>
-        </div>
-        <div class="mt-2 flex items-baseline gap-2">
-          <span id="statCompanies" class="text-2xl font-bold text-slate-900">0</span>
-          <span id="statCompaniesProgress" class="text-xs text-slate-400">waiting</span>
-        </div>
-      </div>
-
-      <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-medium text-slate-500">Total Walker Dollars</span>
-          <span class="p-2 rounded-xl bg-rose-50 text-rose-600"><i data-lucide="dollar-sign" class="w-4 h-4"></i></span>
-        </div>
-        <div class="mt-2 flex items-baseline gap-2">
-          <span id="statRaised" class="text-2xl font-bold text-slate-900">$0.00</span>
-          <span id="statCents" class="text-xs text-slate-400 font-mono">(0¢)</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Active Process Bar & Progress Feed -->
-    <div id="progressSection" class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-3">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div class="flex items-center space-x-2">
-          <span id="progressSpinner" class="hidden text-rose-600 animate-spin">
-            <i data-lucide="loader-2" class="w-4 h-4"></i>
-          </span>
-          <span id="progressPhaseText" class="text-xs font-semibold text-slate-700">Ready to initiate query sequence</span>
-        </div>
-        <span id="progressPercent" class="text-xs font-mono font-medium text-slate-500">0%</span>
-      </div>
-
-      <!-- Bar container -->
-      <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-        <div id="progressBar" class="bg-gradient-to-r from-rose-500 to-red-600 h-2.5 rounded-full transition-all duration-300 w-0"></div>
-      </div>
-
-      <!-- Log Terminal Box -->
-      <div class="mt-2">
-        <div class="flex items-center justify-between py-1 text-slate-400 text-[11px]">
-          <span>Request Activity Log</span>
-          <button id="clearLogBtn" type="button" class="hover:text-slate-600">Clear</button>
-        </div>
-        <div id="logConsole" class="h-28 bg-slate-900 text-slate-300 font-mono text-[11px] p-3 rounded-xl overflow-y-auto space-y-1 scrollbar-thin">
-          <div class="text-slate-500">[System] Initialized exporter for Heart Walk Event #13179. Click "Start Extraction" to pull data.</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Data Output, Actions & Preview Section -->
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-      <div class="p-4 sm:p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h3 class="text-sm font-bold text-slate-900">Extracted Dataset Inspection &amp; Export</h3>
-          <p class="text-xs text-slate-500">Download formatted JSON structure or view parsed items in live tabular form</p>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-2">
-          <button id="copyJsonBtn" type="button" disabled
-                  class="px-3 py-2 text-xs font-semibold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5">
-            <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy JSON
-          </button>
-
-          <button id="downloadCsvBtn" type="button" disabled
-                  class="px-3 py-2 text-xs font-semibold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5">
-            <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i> Download CSV (Active View)
-          </button>
-
-          <button id="downloadJsonBtn" type="button" disabled
-                  class="px-4 py-2 text-xs font-semibold rounded-xl bg-rose-600 text-white hover:bg-rose-700 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5">
-            <i data-lucide="download" class="w-4 h-4"></i> Download Full JSON
-          </button>
-        </div>
-      </div>
-
-      <!-- Tab Navigation -->
-      <div class="border-b border-slate-200 bg-slate-50 px-5 flex space-x-6 text-xs font-medium">
-        <button id="tabWalkers" type="button" class="py-3 border-b-2 border-rose-600 text-rose-600 font-semibold focus:outline-none flex items-center gap-1.5">
-          <i data-lucide="user" class="w-3.5 h-3.5"></i> Walkers (<span id="tabBadgeWalkers">0</span>)
-        </button>
-        <button id="tabTeams" type="button" class="py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 focus:outline-none flex items-center gap-1.5">
-          <i data-lucide="users" class="w-3.5 h-3.5"></i> Teams (<span id="tabBadgeTeams">0</span>)
-        </button>
-        <button id="tabCompanies" type="button" class="py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 focus:outline-none flex items-center gap-1.5">
-          <i data-lucide="building" class="w-3.5 h-3.5"></i> Companies (<span id="tabBadgeCompanies">0</span>)
-        </button>
-        <button id="tabRawJson" type="button" class="py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 focus:outline-none flex items-center gap-1.5">
-          <i data-lucide="code" class="w-3.5 h-3.5"></i> Raw JSON Preview
-        </button>
-      </div>
-
-      <!-- Tab Content: Walkers View -->
-      <div id="contentWalkers" class="p-5">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <div class="relative w-full sm:w-80">
-            <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3"></i>
-            <input type="text" id="filterWalkers" placeholder="Filter walkers by name, team, ID..."
-                   class="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-1 focus:ring-rose-500 outline-none">
-          </div>
-          <span id="walkersCountInfo" class="text-xs text-slate-500">Showing 0 of 0</span>
-        </div>
-
-        <div class="border border-slate-200 rounded-xl overflow-x-auto max-h-96 scrollbar-thin">
-          <table class="min-w-full divide-y divide-slate-200 text-left text-xs">
-            <thead class="bg-slate-50 text-slate-600 font-semibold sticky top-0">
-              <tr>
-                <th class="px-4 py-2.5">Name</th>
-                <th class="px-4 py-2.5">Cons ID</th>
-                <th class="px-4 py-2.5">Team</th>
-                <th class="px-4 py-2.5">Company</th>
-                <th class="px-4 py-2.5 text-right">Raised ($)</th>
-                <th class="px-4 py-2.5 text-right">Goal ($)</th>
-                <th class="px-4 py-2.5 text-center">Donations</th>
-              </tr>
-            </thead>
-            <tbody id="tableWalkersBody" class="divide-y divide-slate-100 text-slate-700">
-              <tr>
-                <td colspan="7" class="px-4 py-8 text-center text-slate-400">No walker records downloaded yet.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Tab Content: Teams View -->
-      <div id="contentTeams" class="p-5 hidden">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <div class="relative w-full sm:w-80">
-            <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3"></i>
-            <input type="text" id="filterTeams" placeholder="Filter teams by name, captain, company..."
-                   class="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-1 focus:ring-rose-500 outline-none">
-          </div>
-          <span id="teamsCountInfo" class="text-xs text-slate-500">Showing 0 of 0</span>
-        </div>
-
-        <div class="border border-slate-200 rounded-xl overflow-x-auto max-h-96 scrollbar-thin">
-          <table class="min-w-full divide-y divide-slate-200 text-left text-xs">
-            <thead class="bg-slate-50 text-slate-600 font-semibold sticky top-0">
-              <tr>
-                <th class="px-4 py-2.5">Team Name</th>
-                <th class="px-4 py-2.5">Team ID</th>
-                <th class="px-4 py-2.5">Captain</th>
-                <th class="px-4 py-2.5">Company</th>
-                <th class="px-4 py-2.5 text-right">Members</th>
-                <th class="px-4 py-2.5 text-right">Raised ($)</th>
-                <th class="px-4 py-2.5 text-right">Goal ($)</th>
-              </tr>
-            </thead>
-            <tbody id="tableTeamsBody" class="divide-y divide-slate-100 text-slate-700">
-              <tr>
-                <td colspan="7" class="px-4 py-8 text-center text-slate-400">No team records downloaded yet.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Tab Content: Companies View -->
-      <div id="contentCompanies" class="p-5 hidden">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <div class="relative w-full sm:w-80">
-            <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3"></i>
-            <input type="text" id="filterCompanies" placeholder="Filter companies by name, coordinator..."
-                   class="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-1 focus:ring-rose-500 outline-none">
-          </div>
-          <span id="companiesCountInfo" class="text-xs text-slate-500">Showing 0 of 0</span>
-        </div>
-
-        <div class="border border-slate-200 rounded-xl overflow-x-auto max-h-96 scrollbar-thin">
-          <table class="min-w-full divide-y divide-slate-200 text-left text-xs">
-            <thead class="bg-slate-50 text-slate-600 font-semibold sticky top-0">
-              <tr>
-                <th class="px-4 py-2.5">Company Name</th>
-                <th class="px-4 py-2.5">Company ID</th>
-                <th class="px-4 py-2.5">Coordinator</th>
-                <th class="px-4 py-2.5 text-right">Teams Count</th>
-                <th class="px-4 py-2.5 text-right">Participants</th>
-                <th class="px-4 py-2.5 text-right">Total Raised ($)</th>
-              </tr>
-            </thead>
-            <tbody id="tableCompaniesBody" class="divide-y divide-slate-100 text-slate-700">
-              <tr>
-                <td colspan="6" class="px-4 py-8 text-center text-slate-400">No company records downloaded yet.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Tab Content: Raw JSON View -->
-      <div id="contentRawJson" class="p-5 hidden">
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-xs text-slate-500 font-medium">Consolidated JSON schema preview</span>
-          <span id="jsonBytesSize" class="text-xs font-mono text-slate-400">0 KB</span>
-        </div>
-        <pre id="jsonPreviewCode" class="h-96 bg-slate-900 text-emerald-400 p-4 rounded-xl text-xs font-mono overflow-auto scrollbar-thin whitespace-pre leading-relaxed">
-{
-  "notice": "Initiate extraction to populate and generate complete event JSON structure."
-}
-        </pre>
-      </div>
-    </div>
-
-    <!-- Notification Toast -->
-    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white text-xs px-4 py-3 rounded-xl shadow-xl flex items-center space-x-2 pointer-events-none">
-      <i id="toastIcon" data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
-      <span id="toastMessage">Done</span>
-    </div>
-  </main>
-
-  <script>
-    // Master State Container
-    const AppState = {
-      isExtracting: false,
-      abortController: null,
-      activeTab: 'walkers',
-      useProxy: false,
-      data: {
-        metadata: {
-          extractedAt: null,
-          eventId: '13179',
-          sourceUrl: 'https://www2.heart.org/site/CRTeamraiserAPI',
-          clientVersion: '1.0'
-        },
-        summary: {
-          totalWalkers: 0,
-          totalTeams: 0,
-          totalCompanies: 0,
-          totalAmountRaisedCents: 0,
-          totalAmountRaisedDollars: 0
-        },
-        topFundraisers: {
-          walkers: [],
-          teams: [],
-          companies: []
-        },
-        participants: [],
-        teams: [],
-        companies: []
-      }
-    };
-
-    // DOM Element References
-    const elements = {
-      apiKeyInput: document.getElementById('apiKeyInput'),
-      eventIdInput: document.getElementById('eventIdInput'),
-      pageSizeInput: document.getElementById('pageSizeInput'),
-      rateLimitDelay: document.getElementById('rateLimitDelay'),
-      baseUrlInput: document.getElementById('baseUrlInput'),
-      fetchParticipantsChk: document.getElementById('fetchParticipantsChk'),
-      fetchTeamsChk: document.getElementById('fetchTeamsChk'),
-      fetchCompaniesChk: document.getElementById('fetchCompaniesChk'),
-      fetchTopSummaryChk: document.getElementById('fetchTopSummaryChk'),
-      useProxyToggle: document.getElementById('useProxyToggle'),
-      corsNotice: document.getElementById('corsNotice'),
-      testDirectCallBtn: document.getElementById('testDirectCallBtn'),
-      startExtractionBtn: document.getElementById('startExtractionBtn'),
-      cancelBtn: document.getElementById('cancelBtn'),
-      quickSampleBtn: document.getElementById('quickSampleBtn'),
-      toggleKeyVisibility: document.getElementById('toggleKeyVisibility'),
-      clearLogBtn: document.getElementById('clearLogBtn'),
-
-      // Status & Progress
-      connectionBadge: document.getElementById('connectionBadge'),
-      headerEventBadge: document.getElementById('headerEventBadge'),
-      progressBar: document.getElementById('progressBar'),
-      progressPercent: document.getElementById('progressPercent'),
-      progressPhaseText: document.getElementById('progressPhaseText'),
-      progressSpinner: document.getElementById('progressSpinner'),
-      logConsole: document.getElementById('logConsole'),
-
-      // Stats
-      statWalkers: document.getElementById('statWalkers'),
-      statWalkersProgress: document.getElementById('statWalkersProgress'),
-      statTeams: document.getElementById('statTeams'),
-      statTeamsProgress: document.getElementById('statTeamsProgress'),
-      statCompanies: document.getElementById('statCompanies'),
-      statCompaniesProgress: document.getElementById('statCompaniesProgress'),
-      statRaised: document.getElementById('statRaised'),
-      statCents: document.getElementById('statCents'),
-
-      // Action buttons
-      downloadJsonBtn: document.getElementById('downloadJsonBtn'),
-      downloadCsvBtn: document.getElementById('downloadCsvBtn'),
-      copyJsonBtn: document.getElementById('copyJsonBtn'),
-
-      // Tabs & counts
-      tabWalkers: document.getElementById('tabWalkers'),
-      tabTeams: document.getElementById('tabTeams'),
-      tabCompanies: document.getElementById('tabCompanies'),
-      tabRawJson: document.getElementById('tabRawJson'),
-      tabBadgeWalkers: document.getElementById('tabBadgeWalkers'),
-      tabBadgeTeams: document.getElementById('tabBadgeTeams'),
-      tabBadgeCompanies: document.getElementById('tabBadgeCompanies'),
-
-      // Tab contents
-      contentWalkers: document.getElementById('contentWalkers'),
-      contentTeams: document.getElementById('contentTeams'),
-      contentCompanies: document.getElementById('contentCompanies'),
-      contentRawJson: document.getElementById('contentRawJson'),
-
-      // Search filters & tables
-      filterWalkers: document.getElementById('filterWalkers'),
-      filterTeams: document.getElementById('filterTeams'),
-      filterCompanies: document.getElementById('filterCompanies'),
-      tableWalkersBody: document.getElementById('tableWalkersBody'),
-      tableTeamsBody: document.getElementById('tableTeamsBody'),
-      tableCompaniesBody: document.getElementById('tableCompaniesBody'),
-      walkersCountInfo: document.getElementById('walkersCountInfo'),
-      teamsCountInfo: document.getElementById('teamsCountInfo'),
-      companiesCountInfo: document.getElementById('companiesCountInfo'),
-
-      // Raw preview
-      jsonPreviewCode: document.getElementById('jsonPreviewCode'),
-      jsonBytesSize: document.getElementById('jsonBytesSize'),
-
-      // Toast
-      toast: document.getElementById('toast'),
-      toastMessage: document.getElementById('toastMessage'),
-      toastIcon: document.getElementById('toastIcon')
-    };
-
-    function log(message, type = 'info') {
-      const entry = document.createElement('div');
-      const time = new Date().toLocaleTimeString();
-      let colorClass = 'text-slate-300';
-      if (type === 'success') colorClass = 'text-emerald-400 font-medium';
-      if (type === 'warn') colorClass = 'text-amber-400';
-      if (type === 'error') colorClass = 'text-rose-400 font-medium';
-
-      entry.className = colorClass;
-      entry.innerHTML = `<span class="text-slate-500">[${time}]</span> ${message}`;
-      elements.logConsole.appendChild(entry);
-      elements.logConsole.scrollTop = elements.logConsole.scrollHeight;
+    if (filter) {
+      records = records.filter(r => Object.values(r).some(val => String(val).toLowerCase().includes(filter)));
     }
 
-    function showToast(msg, isError = false) {
-      elements.toastMessage.innerText = msg;
-      if (isError) {
-        elements.toastIcon.setAttribute('data-lucide', 'alert-circle');
-        elements.toastIcon.className = 'w-4 h-4 text-rose-400';
-      } else {
-        elements.toastIcon.setAttribute('data-lucide', 'check-circle');
-        elements.toastIcon.className = 'w-4 h-4 text-emerald-400';
+    records.sort((a, b) => {
+      let valA = a[sortColumn];
+      let valB = b[sortColumn];
+      if (typeof valA === 'string') {
+        return sortAscending ? valA.localeCompare(valB) : valB.localeCompare(valA);
       }
-      lucide.createIcons();
-      elements.toast.classList.remove('translate-y-20', 'opacity-0');
-      setTimeout(() => {
-        elements.toast.classList.add('translate-y-20', 'opacity-0');
-      }, 3500);
-    }
-
-    function centsToDollars(cents) {
-      if (!cents) return 0;
-      const parsed = parseFloat(cents);
-      return isNaN(parsed) ? 0 : parseFloat((parsed / 100).toFixed(2));
-    }
-
-    function formatCurrency(amount) {
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD'
-      }).format(amount);
-    }
-
-    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-    // Handle TeamRaiser XML-to-JSON quirk: single records are objects, multiple are arrays, empty is undefined
-    function ensureArray(data) {
-      if (!data) return [];
-      if (Array.isArray(data)) return data;
-      return [data];
-    }
-
-    async function fetchWithRetry(url, params, signal) {
-      const urlObj = new URL(url);
-      Object.keys(params).forEach(k => {
-        if (params[k] !== undefined && params[k] !== null) {
-          urlObj.searchParams.set(k, params[k]);
-        }
-      });
-
-      let targetUrl = urlObj.toString();
-      if (AppState.useProxy) {
-        targetUrl = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
-      }
-
-      try {
-        const res = await fetch(targetUrl, {
-          method: 'GET',
-          signal,
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
-
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-        }
-
-        const json = await res.json();
-        // Check for Convio error responses
-        if (json.errorResponse) {
-          const errCode = json.errorResponse.code || 'API_ERR';
-          const errMsg = json.errorResponse.message || 'Unknown Convio error';
-          throw new Error(`API Error [${errCode}]: ${errMsg}`);
-        }
-        return json;
-      } catch (err) {
-        if (err.name === 'AbortError') {
-          throw err;
-        }
-
-        // If direct request failed with a fetch error (likely CORS in browser preview), trigger fallback advice
-        if (!AppState.useProxy && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError'))) {
-          elements.corsNotice.classList.remove('hidden');
-          log('Network/CORS error detected. You can switch on "CORS Gateway helper" above.', 'warn');
-        }
-        throw err;
-      }
-    }
-
-    async function fetchAllWalkers(baseUrl, apiKey, eventId, pageSize, pacingDelay, signal, onProgress) {
-      let offset = 0;
-      let total = null;
-      const allWalkers = [];
-
-      while (total === null || offset < total) {
-        if (signal.aborted) throw new Error('Extraction canceled by user');
-
-        const params = {
-          method: 'getParticipants',
-          api_key: apiKey,
-          v: '1.0',
-          response_format: 'json',
-          fr_id: eventId,
-          first_name: '%',
-          list_page_size: pageSize,
-          list_page_offset: offset,
-          list_sort_column: 'total',
-          list_ascending: 'false'
-        };
-
-        log(`Fetching walkers batch: offset ${offset}, limit ${pageSize}...`);
-        const json = await fetchWithRetry(baseUrl, params, signal);
-        const container = json.getParticipantsResponse;
-
-        if (!container) {
-          log('No participant response payload returned.', 'warn');
-          break;
-        }
-
-        total = parseInt(container.totalNumberResults, 10) || 0;
-        const rawList = ensureArray(container.participant);
-
-        // Normalize currency fields
-        rawList.forEach(w => {
-          const cents = parseInt(w.amountRaised || 0, 10);
-          w.amountRaisedCents = cents;
-          w.amountRaisedDollars = centsToDollars(cents);
-
-          const goalCents = parseInt(w.goal || 0, 10);
-          w.goalCents = goalCents;
-          w.goalDollars = centsToDollars(goalCents);
-
-          // Standardize name representation
-          const first = (w.name && w.name.first) || w.firstName || '';
-          const last = (w.name && w.name.last) || w.lastName || '';
-          w.fullName = `${first} ${last}`.trim();
-          allWalkers.push(w);
-        });
-
-        onProgress(allWalkers.length, total);
-        offset += pageSize;
-
-        if (allWalkers.length >= total) break;
-        if (pacingDelay > 0) await sleep(pacingDelay);
-      }
-
-      return allWalkers;
-    }
-
-    async function fetchAllTeams(baseUrl, apiKey, eventId, pageSize, pacingDelay, signal, onProgress) {
-      let offset = 0;
-      let total = null;
-      const allTeams = [];
-
-      while (total === null || offset < total) {
-        if (signal.aborted) throw new Error('Extraction canceled by user');
-
-        const params = {
-          method: 'getTeamsByInfo',
-          api_key: apiKey,
-          v: '1.0',
-          response_format: 'json',
-          fr_id: eventId,
-          team_name: '%',
-          list_page_size: pageSize,
-          list_page_offset: offset,
-          list_sort_column: 'total',
-          list_ascending: 'false'
-        };
-
-        log(`Fetching teams batch: offset ${offset}, limit ${pageSize}...`);
-        const json = await fetchWithRetry(baseUrl, params, signal);
-        const container = json.getTeamSearchResponse || json.getTeamsResponse;
-
-        if (!container) {
-          log('No team response payload found.', 'warn');
-          break;
-        }
-
-        total = parseInt(container.totalNumberResults, 10) || 0;
-        const rawList = ensureArray(container.team);
-
-        rawList.forEach(t => {
-          const cents = parseInt(t.amountRaised || 0, 10);
-          t.amountRaisedCents = cents;
-          t.amountRaisedDollars = centsToDollars(cents);
-
-          const goalCents = parseInt(t.goal || 0, 10);
-          t.goalCents = goalCents;
-          t.goalDollars = centsToDollars(goalCents);
-
-          allTeams.push(t);
-        });
-
-        onProgress(allTeams.length, total);
-        offset += pageSize;
-
-        if (allTeams.length >= total) break;
-        if (pacingDelay > 0) await sleep(pacingDelay);
-      }
-
-      return allTeams;
-    }
-
-    async function fetchAllCompanies(baseUrl, apiKey, eventId, pageSize, pacingDelay, signal, onProgress) {
-      let offset = 0;
-      let total = null;
-      const allCompanies = [];
-
-      while (total === null || offset < total) {
-        if (signal.aborted) throw new Error('Extraction canceled by user');
-
-        const params = {
-          method: 'getCompaniesByInfo',
-          api_key: apiKey,
-          v: '1.0',
-          response_format: 'json',
-          fr_id: eventId,
-          company_name: '%',
-          list_page_size: pageSize,
-          list_page_offset: offset
-        };
-
-        log(`Fetching companies batch: offset ${offset}, limit ${pageSize}...`);
-        const json = await fetchWithRetry(baseUrl, params, signal);
-        const container = json.getCompaniesResponse;
-
-        if (!container) {
-          log('No company response payload found.', 'warn');
-          break;
-        }
-
-        total = parseInt(container.totalNumberResults, 10) || 0;
-        const rawList = ensureArray(container.company);
-
-        rawList.forEach(c => {
-          const cents = parseInt(c.amountRaised || 0, 10);
-          c.amountRaisedCents = cents;
-          c.amountRaisedDollars = centsToDollars(cents);
-          allCompanies.push(c);
-        });
-
-        onProgress(allCompanies.length, total);
-        offset += pageSize;
-
-        if (allCompanies.length >= total) break;
-        if (pacingDelay > 0) await sleep(pacingDelay);
-      }
-
-      return allCompanies;
-    }
-
-    async function fetchTopLeaderboards(baseUrl, apiKey, eventId, signal) {
-      const topData = { walkers: [], teams: [], companies: [] };
-
-      try {
-        log('Fetching top walkers leaderboard...');
-        const resWalkers = await fetchWithRetry(baseUrl, {
-          method: 'getTopFundraisers',
-          api_key: apiKey,
-          v: '1.0',
-          response_format: 'json',
-          fr_id: eventId,
-          type: 'individual'
-        }, signal);
-        topData.walkers = ensureArray(resWalkers.getTopFundraisersResponse?.teamraiserData);
-
-        log('Fetching top teams leaderboard...');
-        const resTeams = await fetchWithRetry(baseUrl, {
-          method: 'getTopFundraisers',
-          api_key: apiKey,
-          v: '1.0',
-          response_format: 'json',
-          fr_id: eventId,
-          type: 'team'
-        }, signal);
-        topData.teams = ensureArray(resTeams.getTopFundraisersResponse?.teamraiserData);
-
-        log('Fetching top companies leaderboard...');
-        const resCompanies = await fetchWithRetry(baseUrl, {
-          method: 'getTopFundraisers',
-          api_key: apiKey,
-          v: '1.0',
-          response_format: 'json',
-          fr_id: eventId,
-          type: 'company'
-        }, signal);
-        topData.companies = ensureArray(resCompanies.getTopFundraisersResponse?.teamraiserData);
-      } catch (err) {
-        log(`Leaderboard note: ${err.message}`, 'warn');
-      }
-
-      return topData;
-    }
-
-    async function executeExtraction() {
-      if (AppState.isExtracting) return;
-
-      const apiKey = elements.apiKeyInput.value.trim();
-      const eventId = elements.eventIdInput.value.trim();
-      const baseUrl = elements.baseUrlInput.value.trim();
-      const pageSize = parseInt(elements.pageSizeInput.value, 10) || 500;
-      const pacingDelay = parseInt(elements.rateLimitDelay.value, 10) || 250;
-
-      if (!apiKey || !eventId) {
-        showToast('API Key and Event ID are required.', true);
-        return;
-      }
-
-      AppState.isExtracting = true;
-      AppState.abortController = new AbortController();
-      const { signal } = AppState.abortController;
-
-      // Reset state for new run
-      AppState.data.participants = [];
-      AppState.data.teams = [];
-      AppState.data.companies = [];
-      AppState.data.topFundraisers = { walkers: [], teams: [], companies: [] };
-      AppState.data.metadata.extractedAt = new Date().toISOString();
-      AppState.data.metadata.eventId = eventId;
-      AppState.data.metadata.sourceUrl = baseUrl;
-
-      // Update UI state
-      elements.headerEventBadge.innerText = eventId;
-      elements.startExtractionBtn.classList.add('hidden');
-      elements.cancelBtn.classList.remove('hidden');
-      elements.cancelBtn.disabled = false;
-      elements.progressSpinner.classList.remove('hidden');
-      elements.connectionBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span> Fetching Live Records';
-      elements.connectionBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-700 font-medium border border-amber-200';
-      elements.downloadJsonBtn.disabled = true;
-      elements.downloadCsvBtn.disabled = true;
-      elements.copyJsonBtn.disabled = true;
-
-      log(`Beginning extraction sequence for Heart Walk Event ${eventId}...`, 'info');
-
-      try {
-        const doWalkers = elements.fetchParticipantsChk.checked;
-        const doTeams = elements.fetchTeamsChk.checked;
-        const doCompanies = elements.fetchCompaniesChk.checked;
-        const doTop = elements.fetchTopSummaryChk.checked;
-
-        let stepsTotal = (doWalkers ? 1 : 0) + (doTeams ? 1 : 0) + (doCompanies ? 1 : 0) + (doTop ? 1 : 0);
-        let stepsCompleted = 0;
-
-        const updateOverallProgress = (subRatio = 0) => {
-          const overall = Math.min(100, Math.round(((stepsCompleted + subRatio) / (stepsTotal || 1)) * 100));
-          elements.progressBar.style.width = `${overall}%`;
-          elements.progressPercent.innerText = `${overall}%`;
-        };
-
-        // 1. Walkers
-        if (doWalkers) {
-          elements.progressPhaseText.innerText = 'Extracting Walkers / Participants...';
-          AppState.data.participants = await fetchAllWalkers(
-            baseUrl, apiKey, eventId, pageSize, pacingDelay, signal,
-            (loaded, total) => {
-              elements.statWalkers.innerText = loaded.toLocaleString();
-              elements.statWalkersProgress.innerText = `of ${total.toLocaleString()}`;
-              elements.tabBadgeWalkers.innerText = loaded.toLocaleString();
-              const ratio = total > 0 ? (loaded / total) : 0;
-              updateOverallProgress(ratio);
-            }
-          );
-          stepsCompleted++;
-          updateOverallProgress(0);
-          log(`Walkers extraction finished: ${AppState.data.participants.length} records retrieved.`, 'success');
-        }
-
-        // 2. Teams
-        if (doTeams) {
-          elements.progressPhaseText.innerText = 'Extracting Teams...';
-          AppState.data.teams = await fetchAllTeams(
-            baseUrl, apiKey, eventId, pageSize, pacingDelay, signal,
-            (loaded, total) => {
-              elements.statTeams.innerText = loaded.toLocaleString();
-              elements.statTeamsProgress.innerText = `of ${total.toLocaleString()}`;
-              elements.tabBadgeTeams.innerText = loaded.toLocaleString();
-              const ratio = total > 0 ? (loaded / total) : 0;
-              updateOverallProgress(ratio);
-            }
-          );
-          stepsCompleted++;
-          updateOverallProgress(0);
-          log(`Teams extraction finished: ${AppState.data.teams.length} records retrieved.`, 'success');
-        }
-
-        // 3. Companies
-        if (doCompanies) {
-          elements.progressPhaseText.innerText = 'Extracting Companies...';
-          AppState.data.companies = await fetchAllCompanies(
-            baseUrl, apiKey, eventId, pageSize, pacingDelay, signal,
-            (loaded, total) => {
-              elements.statCompanies.innerText = loaded.toLocaleString();
-              elements.statCompaniesProgress.innerText = `of ${total.toLocaleString()}`;
-              elements.tabBadgeCompanies.innerText = loaded.toLocaleString();
-              const ratio = total > 0 ? (loaded / total) : 0;
-              updateOverallProgress(ratio);
-            }
-          );
-          stepsCompleted++;
-          updateOverallProgress(0);
-          log(`Companies extraction finished: ${AppState.data.companies.length} records retrieved.`, 'success');
-        }
-
-        // 4. Top Fundraisers
-        if (doTop) {
-          elements.progressPhaseText.innerText = 'Extracting Top Leaderboards...';
-          AppState.data.topFundraisers = await fetchTopLeaderboards(baseUrl, apiKey, eventId, signal);
-          stepsCompleted++;
-          updateOverallProgress(0);
-          log('Top Leaderboard data successfully saved.', 'success');
-        }
-
-        // Calculate summary metrics
-        const totalCents = AppState.data.participants.reduce((acc, p) => acc + (p.amountRaisedCents || 0), 0);
-        const totalDollars = centsToDollars(totalCents);
-
-        AppState.data.summary = {
-          totalWalkers: AppState.data.participants.length,
-          totalTeams: AppState.data.teams.length,
-          totalCompanies: AppState.data.companies.length,
-          totalAmountRaisedCents: totalCents,
-          totalAmountRaisedDollars: totalDollars
-        };
-
-        elements.statRaised.innerText = formatCurrency(totalDollars);
-        elements.statCents.innerText = `(${totalCents.toLocaleString()}¢)`;
-
-        elements.progressPhaseText.innerText = 'Extraction complete! Ready for download.';
-        elements.connectionBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500"></span> Dataset Synced';
-        elements.connectionBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 font-medium border border-emerald-200';
-
-        renderWalkersTable();
-        renderTeamsTable();
-        renderCompaniesTable();
-        updateJsonPreview();
-
-        elements.downloadJsonBtn.disabled = false;
-        elements.downloadCsvBtn.disabled = false;
-        elements.copyJsonBtn.disabled = false;
-
-        showToast('All data successfully pulled!');
-      } catch (err) {
-        if (err.name === 'AbortError' || err.message.includes('canceled')) {
-          log('Process halted by user.', 'warn');
-          elements.progressPhaseText.innerText = 'Extraction stopped.';
-          elements.connectionBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-slate-400"></span> Stopped';
-          elements.connectionBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200';
-          showToast('Extraction canceled', false);
-        } else {
-          log(`Error encountered: ${err.message}`, 'error');
-          elements.progressPhaseText.innerText = 'Error occurred during fetch.';
-          elements.connectionBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-500"></span> Error';
-          elements.connectionBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200';
-          showToast(err.message, true);
-        }
-      } finally {
-        AppState.isExtracting = false;
-        elements.startExtractionBtn.classList.remove('hidden');
-        elements.cancelBtn.classList.add('hidden');
-        elements.progressSpinner.classList.add('hidden');
-      }
-    }
-
-    function renderWalkersTable() {
-      const filter = elements.filterWalkers.value.toLowerCase().trim();
-      const list = AppState.data.participants.filter(p => {
-        if (!filter) return true;
-        const name = (p.fullName || '').toLowerCase();
-        const team = (p.teamName || '').toLowerCase();
-        const company = (p.companyName || '').toLowerCase();
-        const id = (p.consId || '').toString();
-        return name.includes(filter) || team.includes(filter) || company.includes(filter) || id.includes(filter);
-      });
-
-      elements.walkersCountInfo.innerText = `Showing ${list.length} of ${AppState.data.participants.length}`;
-
-      if (list.length === 0) {
-        elements.tableWalkersBody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-slate-400">${AppState.data.participants.length === 0 ? 'No walker records.' : 'No walkers matched filter.'}</td></tr>`;
-        return;
-      }
-
-      // Display first 100 rows for smooth UI performance
-      const slice = list.slice(0, 100);
-      let html = '';
-      slice.forEach(p => {
-        html += `
-          <tr class="hover:bg-slate-50/80 transition font-normal">
-            <td class="px-4 py-2 font-medium text-slate-900">${escapeHtml(p.fullName || 'Anonymous')}</td>
-            <td class="px-4 py-2 font-mono text-slate-500 text-[11px]">${escapeHtml(p.consId || '-')}</td>
-            <td class="px-4 py-2 text-slate-600">${escapeHtml(p.teamName || '-')}</td>
-            <td class="px-4 py-2 text-slate-600">${escapeHtml(p.companyName || '-')}</td>
-            <td class="px-4 py-2 text-right font-semibold text-emerald-600">${formatCurrency(p.amountRaisedDollars || 0)}</td>
-            <td class="px-4 py-2 text-right text-slate-500">${formatCurrency(p.goalDollars || 0)}</td>
-            <td class="px-4 py-2 text-center text-slate-500 font-mono text-[11px]">${p.donationCount || '0'}</td>
-          </tr>
-        `;
-      });
-
-      if (list.length > 100) {
-        html += `<tr><td colspan="7" class="px-4 py-2 text-center text-xs text-slate-400 bg-slate-50 font-medium">...and ${list.length - 100} more items (included in JSON download)</td></tr>`;
-      }
-      elements.tableWalkersBody.innerHTML = html;
-    }
-
-    function renderTeamsTable() {
-      const filter = elements.filterTeams.value.toLowerCase().trim();
-      const list = AppState.data.teams.filter(t => {
-        if (!filter) return true;
-        const name = (t.name || '').toLowerCase();
-        const captain = (t.captainName || '').toLowerCase();
-        const comp = (t.companyName || '').toLowerCase();
-        const id = (t.id || '').toString();
-        return name.includes(filter) || captain.includes(filter) || comp.includes(filter) || id.includes(filter);
-      });
-
-      elements.teamsCountInfo.innerText = `Showing ${list.length} of ${AppState.data.teams.length}`;
-
-      if (list.length === 0) {
-        elements.tableTeamsBody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-slate-400">${AppState.data.teams.length === 0 ? 'No team records.' : 'No teams matched filter.'}</td></tr>`;
-        return;
-      }
-
-      const slice = list.slice(0, 100);
-      let html = '';
-      slice.forEach(t => {
-        html += `
-          <tr class="hover:bg-slate-50/80 transition">
-            <td class="px-4 py-2 font-medium text-slate-900">${escapeHtml(t.name || 'Unnamed')}</td>
-            <td class="px-4 py-2 font-mono text-slate-500 text-[11px]">${escapeHtml(t.id || '-')}</td>
-            <td class="px-4 py-2 text-slate-600">${escapeHtml(t.captainName || '-')}</td>
-            <td class="px-4 py-2 text-slate-600">${escapeHtml(t.companyName || '-')}</td>
-            <td class="px-4 py-2 text-right text-slate-700 font-mono text-[11px]">${t.numMembers || '0'}</td>
-            <td class="px-4 py-2 text-right font-semibold text-emerald-600">${formatCurrency(t.amountRaisedDollars || 0)}</td>
-            <td class="px-4 py-2 text-right text-slate-500">${formatCurrency(t.goalDollars || 0)}</td>
-          </tr>
-        `;
-      });
-
-      if (list.length > 100) {
-        html += `<tr><td colspan="7" class="px-4 py-2 text-center text-xs text-slate-400 bg-slate-50 font-medium">...and ${list.length - 100} more teams (included in JSON download)</td></tr>`;
-      }
-      elements.tableTeamsBody.innerHTML = html;
-    }
-
-    function renderCompaniesTable() {
-      const filter = elements.filterCompanies.value.toLowerCase().trim();
-      const list = AppState.data.companies.filter(c => {
-        if (!filter) return true;
-        const name = (c.companyName || '').toLowerCase();
-        const coord = (c.coordinatorName || '').toLowerCase();
-        const id = (c.companyId || '').toString();
-        return name.includes(filter) || coord.includes(filter) || id.includes(filter);
-      });
-
-      elements.companiesCountInfo.innerText = `Showing ${list.length} of ${AppState.data.companies.length}`;
-
-      if (list.length === 0) {
-        elements.tableCompaniesBody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-slate-400">${AppState.data.companies.length === 0 ? 'No company records.' : 'No companies matched filter.'}</td></tr>`;
-        return;
-      }
-
-      const slice = list.slice(0, 100);
-      let html = '';
-      slice.forEach(c => {
-        html += `
-          <tr class="hover:bg-slate-50/80 transition">
-            <td class="px-4 py-2 font-medium text-slate-900">${escapeHtml(c.companyName || 'Unnamed')}</td>
-            <td class="px-4 py-2 font-mono text-slate-500 text-[11px]">${escapeHtml(c.companyId || '-')}</td>
-            <td class="px-4 py-2 text-slate-600">${escapeHtml(c.coordinatorName || '-')}</td>
-            <td class="px-4 py-2 text-right text-slate-700 font-mono text-[11px]">${c.teamCount || '0'}</td>
-            <td class="px-4 py-2 text-right text-slate-700 font-mono text-[11px]">${c.participantCount || '0'}</td>
-            <td class="px-4 py-2 text-right font-semibold text-emerald-600">${formatCurrency(c.amountRaisedDollars || 0)}</td>
-          </tr>
-        `;
-      });
-
-      if (list.length > 100) {
-        html += `<tr><td colspan="6" class="px-4 py-2 text-center text-xs text-slate-400 bg-slate-50 font-medium">...and ${list.length - 100} more companies (included in JSON download)</td></tr>`;
-      }
-      elements.tableCompaniesBody.innerHTML = html;
-    }
-
-    function escapeHtml(str) {
-      if (!str) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-    }
-
-    function updateJsonPreview() {
-      const jsonStr = JSON.stringify(AppState.data, null, 2);
-      elements.jsonPreviewCode.textContent = jsonStr;
-      const bytes = new Blob([jsonStr]).size;
-      elements.jsonBytesSize.innerText = `${(bytes / 1024).toFixed(1)} KB`;
-    }
-
-    function downloadCurrentJson() {
-      if (!AppState.data.metadata.extractedAt && AppState.data.participants.length === 0) {
-        showToast('No extracted data to download.', true);
-        return;
-      }
-      const jsonString = JSON.stringify(AppState.data, null, 2);
-      const blob = new Blob([jsonString], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      const eventId = elements.eventIdInput.value.trim() || '13179';
-      a.href = url;
-      a.download = `heartwalk_event_${eventId}_export.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      showToast(`Exported heartwalk_event_${eventId}_export.json`);
-    }
-
-    function exportCsvForActiveTab() {
-      let records = [];
-      let filename = 'export.csv';
-      const eventId = elements.eventIdInput.value.trim() || '13179';
-
-      if (AppState.activeTab === 'walkers') {
-        records = AppState.data.participants;
-        filename = `heartwalk_${eventId}_walkers.csv`;
-      } else if (AppState.activeTab === 'teams') {
-        records = AppState.data.teams;
-        filename = `heartwalk_${eventId}_teams.csv`;
-      } else if (AppState.activeTab === 'companies') {
-        records = AppState.data.companies;
-        filename = `heartwalk_${eventId}_companies.csv`;
-      } else {
-        showToast('Please switch to a Walkers, Teams, or Companies tab to download CSV.', true);
-        return;
-      }
-
-      if (!records || records.length === 0) {
-        showToast('No records available to export for this view.', true);
-        return;
-      }
-
-      const headers = Object.keys(records[0]);
-      const csvRows = [headers.join(',')];
-
-      records.forEach(row => {
-        const values = headers.map(header => {
-          let val = row[header];
-          if (typeof val === 'object' && val !== null) {
-            val = JSON.stringify(val);
-          }
-          const str = String(val ?? '').replace(/"/g, '""');
-          return `"${str}"`;
-        });
-        csvRows.push(values.join(','));
-      });
-
-      const csvBlob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(csvBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      showToast(`Exported ${filename}`);
-    }
-
-    function copyJsonToClipboard() {
-      const jsonStr = JSON.stringify(AppState.data, null, 2);
-      const textArea = document.createElement('textarea');
-      textArea.value = jsonStr;
-      textArea.style.position = 'fixed';
-      textArea.style.left = '-999999px';
-      textArea.style.top = '-999999px';
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-      try {
-        const successful = document.execCommand('copy');
-        if (successful) {
-          showToast('JSON copied to clipboard!');
-        } else {
-          showToast('Failed to copy to clipboard', true);
-        }
-      } catch (err) {
-        showToast('Failed to copy: ' + err.message, true);
-      } finally {
-        document.body.removeChild(textArea);
-      }
-    }
-
-    function switchTab(tab) {
-      AppState.activeTab = tab;
-      const tabButtons = [elements.tabWalkers, elements.tabTeams, elements.tabCompanies, elements.tabRawJson];
-      const contents = [elements.contentWalkers, elements.contentTeams, elements.contentCompanies, elements.contentRawJson];
-
-      tabButtons.forEach(btn => {
-        btn.classList.remove('border-rose-600', 'text-rose-600', 'font-semibold');
-        btn.classList.add('border-transparent', 'text-slate-500');
-      });
-
-      contents.forEach(c => c.classList.add('hidden'));
-
-      if (tab === 'walkers') {
-        elements.tabWalkers.classList.add('border-rose-600', 'text-rose-600', 'font-semibold');
-        elements.tabWalkers.classList.remove('border-transparent', 'text-slate-500');
-        elements.contentWalkers.classList.remove('hidden');
-      } else if (tab === 'teams') {
-        elements.tabTeams.classList.add('border-rose-600', 'text-rose-600', 'font-semibold');
-        elements.tabTeams.classList.remove('border-transparent', 'text-slate-500');
-        elements.contentTeams.classList.remove('hidden');
-      } else if (tab === 'companies') {
-        elements.tabCompanies.classList.add('border-rose-600', 'text-rose-600', 'font-semibold');
-        elements.tabCompanies.classList.remove('border-transparent', 'text-slate-500');
-        elements.contentCompanies.classList.remove('hidden');
-      } else if (tab === 'rawJson') {
-        elements.tabRawJson.classList.add('border-rose-600', 'text-rose-600', 'font-semibold');
-        elements.tabRawJson.classList.remove('border-transparent', 'text-slate-500');
-        elements.contentRawJson.classList.remove('hidden');
-      }
-    }
-
-    // Event Bindings
-    elements.startExtractionBtn.addEventListener('click', executeExtraction);
-    elements.cancelBtn.addEventListener('click', () => {
-      if (AppState.abortController) {
-        AppState.abortController.abort();
-      }
+      return sortAscending ? valA - valB : valB - valA;
     });
 
-    elements.downloadJsonBtn.addEventListener('click', downloadCurrentJson);
-    elements.downloadCsvBtn.addEventListener('click', exportCsvForActiveTab);
-    elements.copyJsonBtn.addEventListener('click', copyJsonToClipboard);
+    const thead = document.getElementById('tableHead');
+    const tbody = document.getElementById('tableBody');
 
-    elements.tabWalkers.addEventListener('click', () => switchTab('walkers'));
-    elements.tabTeams.addEventListener('click', () => switchTab('teams'));
-    elements.tabCompanies.addEventListener('click', () => switchTab('companies'));
-    elements.tabRawJson.addEventListener('click', () => switchTab('rawJson'));
+    if (currentTab === 'walkers') {
+      thead.innerHTML = `
+        <tr>
+          <th onclick="setSort('name')">Name</th>
+          <th onclick="setSort('team')">Team</th>
+          <th onclick="setSort('amount')">Raised</th>
+          <th onclick="setSort('goal')">Goal</th>
+        </tr>`;
+      tbody.innerHTML = records.map(r => `
+        <tr>
+          <td><strong>${r.name}</strong></td>
+          <td>${r.team}</td>
+          <td class="amount">$${r.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+          <td>$${r.goal.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+        </tr>`).join('');
+    } else if (currentTab === 'teams') {
+      thead.innerHTML = `
+        <tr>
+          <th onclick="setSort('name')">Team Name</th>
+          <th onclick="setSort('captain')">Captain</th>
+          <th onclick="setSort('company')">Company</th>
+          <th onclick="setSort('members')">Members</th>
+          <th onclick="setSort('amount')">Raised</th>
+        </tr>`;
+      tbody.innerHTML = records.map(r => `
+        <tr>
+          <td><strong>${r.name}</strong></td>
+          <td>${r.captain}</td>
+          <td>${r.company}</td>
+          <td>${r.members}</td>
+          <td class="amount">$${r.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+        </tr>`).join('');
+    } else if (currentTab === 'companies') {
+      thead.innerHTML = `
+        <tr>
+          <th onclick="setSort('name')">Company Name</th>
+          <th onclick="setSort('teamCount')">Teams</th>
+          <th onclick="setSort('walkerCount')">Walkers</th>
+          <th onclick="setSort('amount')">Total Raised</th>
+        </tr>`;
+      tbody.innerHTML = records.map(r => `
+        <tr>
+          <td><strong>${r.name}</strong></td>
+          <td>${r.teamCount}</td>
+          <td>${r.walkerCount}</td>
+          <td class="amount">$${r.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+        </tr>`).join('');
+    }
+  }
 
-    elements.filterWalkers.addEventListener('input', renderWalkersTable);
-    elements.filterTeams.addEventListener('input', renderTeamsTable);
-    elements.filterCompanies.addEventListener('input', renderCompaniesTable);
-
-    elements.useProxyToggle.addEventListener('change', (e) => {
-      AppState.useProxy = e.target.checked;
-      log(`CORS Proxy routing ${AppState.useProxy ? 'enabled (corsproxy.io)' : 'disabled (direct requests)'}`, 'info');
-    });
-
-    elements.clearLogBtn.addEventListener('click', () => {
-      elements.logConsole.innerHTML = '<div class="text-slate-500">[System] Log cleared.</div>';
-    });
-
-    elements.quickSampleBtn.addEventListener('click', () => {
-      elements.apiKeyInput.value = 'wDB09SQODRpVIOvX';
-      elements.eventIdInput.value = '13179';
-      elements.pageSizeInput.value = '500';
-      elements.rateLimitDelay.value = '250';
-      elements.baseUrlInput.value = 'https://www2.heart.org/site/CRTeamraiserAPI';
-      elements.headerEventBadge.innerText = '13179';
-      showToast('Restored default parameters');
-    });
-
-    elements.toggleKeyVisibility.addEventListener('click', () => {
-      const type = elements.apiKeyInput.getAttribute('type') === 'password' ? 'text' : 'password';
-      elements.apiKeyInput.setAttribute('type', type);
-    });
-
-    elements.eventIdInput.addEventListener('input', (e) => {
-      elements.headerEventBadge.innerText = e.target.value.trim() || '---';
-    });
-
-    // Test API connectivity button
-    elements.testDirectCallBtn.addEventListener('click', async () => {
-      const apiKey = elements.apiKeyInput.value.trim();
-      const eventId = elements.eventIdInput.value.trim();
-      const baseUrl = elements.baseUrlInput.value.trim();
-      log('Testing API ping to verify connectivity...', 'info');
-
-      try {
-        const testRes = await fetchWithRetry(baseUrl, {
-          method: 'getTopFundraisers',
-          api_key: apiKey,
-          v: '1.0',
-          response_format: 'json',
-          fr_id: eventId,
-          type: 'individual'
-        }, new AbortController().signal);
-
-        if (testRes.getTopFundraisersResponse) {
-          log('Direct API connection verified successfully!', 'success');
-          showToast('API handshake successful!');
-        } else {
-          log('Received response without standard TeamRaiser root.', 'warn');
-        }
-      } catch (err) {
-        log(`API ping failed: ${err.message}`, 'error');
-        showToast('Connection failed. Enable CORS gateway.', true);
-      }
-    });
-
-    window.addEventListener('DOMContentLoaded', () => {
-      lucide.createIcons();
-    });
-  </script>
+  loadData();
+</script>
 </body>
 </html>
