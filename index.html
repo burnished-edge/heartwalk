@@ -3,24 +3,55 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AHA Heart Walk — Campaign Ops Console</title>
+  <title>❤️ AHA Heart Walk — Campaign Ops Console</title>
   <style>
     :root {
+      /* Default / Light Mode Palette */
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --card-alt: #f1f5f9;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --muted: #64748b;
+      --aha-red: #c10e21; /* AHA Official Brand Red */
+      --aha-red-hover: #a00a1b;
+      --aha-red-light: rgba(193, 14, 33, 0.08);
+      --table-outer-bg: #c10e21;
+      --table-header-bg: #a00a1b;
+      --table-header-text: #ffffff;
+      --table-row-hover: #fff1f2;
+      --green: #16a34a;
+      --red: #dc2626;
+      --input-bg: #ffffff;
+      --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    }
+
+    [data-theme="dark"] {
       --bg: #0f172a;
       --card: #1e293b;
+      --card-alt: #162032;
       --border: #334155;
       --text: #f8fafc;
       --muted: #94a3b8;
-      --accent: #ef4444; /* Heart Walk AHA Red */
-      --accent-hover: #dc2626;
+      --aha-red: #e11d48;
+      --aha-red-hover: #be123c;
+      --aha-red-light: rgba(225, 29, 72, 0.15);
+      --table-outer-bg: #7f1d1d;
+      --table-header-bg: #991b1b;
+      --table-header-text: #fecdd3;
+      --table-row-hover: #24324a;
       --green: #4ade80;
       --red: #f87171;
+      --input-bg: #0f172a;
+      --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
     }
+
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      transition: background-color 0.2s, border-color 0.2s, color 0.2s;
     }
     body {
       background-color: var(--bg);
@@ -38,12 +69,27 @@
     h1 {
       font-size: 1.5rem;
       font-weight: 700;
-      color: #fff;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
-    .status-text {
-      font-size: 0.8rem;
+    .status-container {
+      font-size: 0.85rem;
       color: var(--muted);
-      margin-top: 4px;
+      margin-top: 6px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .countdown-chip {
+      background: var(--aha-red-light);
+      color: var(--aha-red);
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--aha-red);
     }
     .kpi-grid {
       display: grid;
@@ -77,33 +123,54 @@
       display: flex;
       gap: 12px;
       flex-wrap: wrap;
-      align-items: flex-end;
+      align-items: center;
       margin-bottom: 20px;
     }
-    input[type="text"],
-    select {
-      background: var(--bg);
+
+    input[type="text"] {
+      background: var(--input-bg);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 8px 12px;
+      padding: 8px 14px;
       border-radius: 6px;
       font-size: 0.9rem;
       outline: none;
       height: 38px;
     }
+
+    /* Fixed alignment and balanced right margin for caret dropdowns */
+    select {
+      background-color: var(--input-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 36px 8px 14px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      outline: none;
+      height: 38px;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      background-image: var(--select-arrow);
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 14px;
+      cursor: pointer;
+    }
+
     input[type="text"]:focus,
     select:focus {
-      border-color: var(--accent);
+      border-color: var(--aha-red);
     }
+
     .btn {
-      background: var(--accent);
+      background: var(--aha-red);
       color: #fff;
       font-weight: 600;
       padding: 8px 16px;
       border-radius: 6px;
       border: none;
       cursor: pointer;
-      transition: 0.2s;
       font-size: 0.9rem;
       display: inline-flex;
       align-items: center;
@@ -113,11 +180,7 @@
       white-space: nowrap;
     }
     .btn:hover {
-      background: var(--accent-hover);
-    }
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
+      background: var(--aha-red-hover);
     }
     .btn-secondary {
       background: transparent;
@@ -125,43 +188,66 @@
       color: var(--text);
     }
     .btn-secondary:hover {
-      background: var(--border);
+      background: var(--card-alt);
     }
-    .table-container {
+    .btn-theme {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      height: 38px;
+      display: inline-flex;
+      align-items: center;
+      font-size: 1rem;
+    }
+    .btn-theme:hover {
+      background: var(--card-alt);
+    }
+
+    /* Red Table Wrap */
+    .table-container {
+      background: var(--table-outer-bg);
+      border: 2px solid var(--table-header-bg);
+      padding: 6px;
+      border-radius: 10px;
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
+      box-shadow: 0 4px 12px rgba(193, 14, 33, 0.15);
     }
     table {
       width: 100%;
       border-collapse: collapse;
       text-align: left;
       font-size: 0.9rem;
+      background: var(--card);
+      border-radius: 6px;
+      overflow: hidden;
     }
     th {
-      background: #162032;
-      padding: 12px 14px;
-      border-bottom: 1px solid var(--border);
-      color: var(--muted);
-      font-weight: 600;
+      background: var(--table-header-bg);
+      padding: 14px;
+      color: var(--table-header-text);
+      font-weight: 700;
       text-transform: uppercase;
       font-size: 0.75rem;
       cursor: pointer;
       user-select: none;
       white-space: nowrap;
+      letter-spacing: 0.5px;
     }
     th:hover {
-      color: var(--text);
+      opacity: 0.9;
     }
     td {
       padding: 12px 14px;
       border-bottom: 1px solid var(--border);
       vertical-align: middle;
+      color: var(--text);
     }
-    tr:hover {
-      background: #24324a;
+    tr:hover td {
+      background: var(--table-row-hover);
     }
     .col-wrap {
       min-width: 140px;
@@ -180,11 +266,11 @@
       white-space: nowrap;
     }
     .badge-active {
-      background: rgba(74, 222, 128, 0.1);
+      background: rgba(22, 163, 74, 0.12);
       color: var(--green);
     }
     .badge-zero {
-      background: rgba(248, 113, 113, 0.1);
+      background: rgba(220, 38, 38, 0.12);
       color: var(--red);
     }
     .mono {
@@ -208,21 +294,24 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      font-weight: 500;
     }
     .tab.active {
-      background: var(--accent);
+      background: var(--aha-red);
       color: #fff;
       font-weight: 600;
-      border-color: var(--accent);
+      border-color: var(--aha-red);
     }
     .file-input {
       display: none;
     }
+
     @media (max-width: 768px) {
       body { padding: 12px; }
       header { flex-direction: column; align-items: stretch; }
       .controls { flex-direction: column; align-items: stretch; }
       .kpi-grid { grid-template-columns: 1fr 1fr; }
+      select { width: 100%; }
     }
   </style>
 </head>
@@ -230,11 +319,15 @@
 
   <header>
     <div>
-      <h1>AHA Heart Walk — Campaign Ops Console</h1>
-      <p class="status-text" id="syncStatus">Loading dataset...</p>
+      <h1>❤️ AHA Heart Walk — Campaign Ops Console</h1>
+      <div class="status-container">
+        <span id="syncStatus">Loading dataset...</span>
+        <span>•</span>
+        <span>Next refresh in: <span class="countdown-chip" id="countdownTimer">--:--:--</span></span>
+      </div>
     </div>
-    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-      <button class="btn" id="refreshBtn" onclick="loadData(true)">↻ Refresh Data</button>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+      <button class="btn-theme" id="themeToggle" onclick="toggleTheme()" title="Toggle Dark/Light Mode">🌙</button>
       <button class="btn btn-secondary" onclick="exportJSON()">Export JSON</button>
       <button class="btn btn-secondary" onclick="exportCSV()">Export CSV</button>
       <button class="btn btn-secondary" onclick="document.getElementById('fileUpload').click()">+ Load Backup</button>
@@ -249,11 +342,11 @@
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Active Walkers</div>
-      <div class="kpi-val" id="kpiFundraisers" style="color: #fff;">0</div>
+      <div class="kpi-val" id="kpiFundraisers" style="color: var(--text);">0</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Teams / Companies</div>
-      <div class="kpi-val" id="kpiTeams" style="color: #38bdf8;">0</div>
+      <div class="kpi-val" id="kpiTeams" style="color: var(--aha-red);">0</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Inactives ($0 Raised)</div>
@@ -299,6 +392,56 @@
     let currentView = 'INDIVIDUAL';
     let sortCol = 'total';
     let sortAsc = false;
+    let lastUpdatedTimestamp = null;
+
+    // --- Theme Manager ---
+    function initTheme() {
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme) {
+        setTheme(savedTheme);
+      } else {
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        setTheme(prefersDark ? 'dark' : 'light');
+      }
+    }
+
+    function setTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('theme', theme);
+      const btn = document.getElementById('themeToggle');
+      if (btn) btn.innerText = theme === 'dark' ? '☀️' : '🌙';
+    }
+
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme') || 'light';
+      setTheme(current === 'dark' ? 'light' : 'dark');
+    }
+
+    // --- 6-Hour Scheduled Countdown Timer ---
+    function startCountdownTimer() {
+      const timerEl = document.getElementById('countdownTimer');
+      setInterval(() => {
+        const now = new Date();
+        const currentHours = now.getUTCHours();
+        
+        // Workflow runs at 00:00, 06:00, 12:00, 18:00 UTC
+        const nextTargetHour = Math.ceil((currentHours + 0.001) / 6) * 6;
+        const target = new Date(now);
+        target.setUTCHours(nextTargetHour, 0, 0, 0);
+
+        const diff = target - now;
+        if (diff <= 0) {
+          timerEl.innerText = "Syncing shortly...";
+          return;
+        }
+
+        const h = String(Math.floor(diff / (1000 * 60 * 60))).padStart(2, '0');
+        const m = String(Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))).padStart(2, '0');
+        const s = String(Math.floor((diff % (1000 * 60)) / 1000)).padStart(2, '0');
+
+        timerEl.innerText = `${h}:${m}:${s}`;
+      }, 1000);
+    }
 
     function setView(view) {
       currentView = view;
@@ -366,7 +509,6 @@
 
       let walkerRaised = walkers.reduce((acc, w) => acc + (w.total || 0), 0);
       let zeroes = walkers.filter(w => (w.total || 0) === 0).length;
-
       let teamsRaised = teams.reduce((acc, t) => acc + (t.total || 0), 0);
       let compRaised = companies.reduce((acc, c) => acc + (c.total || 0), 0);
 
@@ -468,7 +610,7 @@
       });
 
       if (list.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 24px; color: var(--muted);">No matching entries found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 28px; color: var(--muted);">No matching entries found.</td></tr>`;
         return;
       }
 
@@ -516,12 +658,6 @@
     }
 
     function processIncomingData(json, label = "Data Loaded") {
-      // Map company lookups from teams/companies
-      const compMap = {};
-      (json.companies || []).forEach(c => {
-        compMap[c.companyId] = c.companyName;
-      });
-
       const teamCompanyMap = {};
       (json.teams || []).forEach(t => {
         if (t.companyName) teamCompanyMap[t.id] = t.companyName;
@@ -559,29 +695,36 @@
       updateKPIs();
       applyFilters();
 
+      let formattedDate = 'Recent';
+      if (json.updated_at) {
+        const d = new Date(json.updated_at);
+        if (!isNaN(d.getTime())) {
+          formattedDate = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) + ' ' +
+                          d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+        }
+      }
+
       const statusEl = document.getElementById('syncStatus');
-      statusEl.innerText = `${label} (${rawData.walkers.length} walkers | Updated: ${json.updated_at || 'Recent'})`;
-      statusEl.style.color = "var(--green)";
+      statusEl.innerText = `Synced: ${formattedDate} (${rawData.walkers.length} Walkers)`;
     }
 
-    async function loadData(forceBust = false) {
+    async function loadData() {
       const statusEl = document.getElementById('syncStatus');
-      statusEl.innerText = "Connecting to repository data...";
-      const bust = forceBust ? `?_=${Date.now()}` : '';
+      statusEl.innerText = "Loading data...";
+      const cacheBust = `?_=${Date.now()}`;
 
       try {
-        const res = await fetch(`./heartwalk_data.json${bust}`);
+        const res = await fetch(`./heartwalk_data.json${cacheBust}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
-        processIncomingData(json, "GitHub Pages Synchronized");
+        processIncomingData(json, "GitHub Pages");
       } catch (err) {
-        statusEl.innerText = `Load failed (${err.message}). If GitHub Pages is still building, click refresh shortly.`;
-        statusEl.style.color = "var(--red)";
+        statusEl.innerText = `Load error: ${err.message}.`;
       }
     }
 
     function exportJSON() {
-      if (!rawData.walkers.length) return alert("No data to export.");
+      if (!rawData.walkers.length) return alert("No data available.");
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(rawData, null, 2));
       const a = document.createElement('a');
       a.href = dataStr;
@@ -590,7 +733,7 @@
     }
 
     function exportCSV() {
-      if (!rawData.walkers.length) return alert("No data to export.");
+      if (!rawData.walkers.length) return alert("No data available.");
       let csv = '';
       if (currentView === 'INDIVIDUAL') {
         csv = 'Walker_ID,Name,Team_Name,Company_Name,Raised_USD,Goal_USD\n';
@@ -621,7 +764,7 @@
       const reader = new FileReader();
       reader.onload = (event) => {
         try {
-          processIncomingData(JSON.parse(event.target.result), `Imported ${file.name}`);
+          processIncomingData(JSON.parse(event.target.result), `Backup: ${file.name}`);
         } catch (err) {
           alert("Invalid JSON format.");
         }
@@ -629,8 +772,10 @@
       reader.readAsText(file);
     }
 
+    initTheme();
     renderHeaders();
     loadData();
+    startCountdownTimer();
   </script>
 </body>
 </html>
