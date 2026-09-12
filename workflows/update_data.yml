@@ -1,0 +1,87 @@
+name: Update Heart Walk Data
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Runs automatically every day at 6 AM UTC
+  workflow_dispatch:      # Allows manual 1-click trigger in GitHub Actions
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Fetch and compile Heart Walk data
+        run: |
+          python - << 'EOF'
+          import requests, json, time
+
+          API_KEY = "wDB09SQODRpVIOvX"
+          FR_ID = "13179"
+          BASE_URL = "https://www2.heart.org/site/CRTeamraiserAPI"
+
+          session = requests.Session()
+          session.headers.update({"User-Agent": "Mozilla/5.0"})
+
+          def fetch_paginated(method, extra_params, key_name, root_name):
+              records = []
+              offset = 0
+              page_size = 500
+              while True:
+                  params = {
+                      "method": method,
+                      "api_key": API_KEY,
+                      "v": "1.0",
+                      "response_format": "json",
+                      "fr_id": FR_ID,
+                      "list_page_size": page_size,
+                      "list_page_offset": offset,
+                      **extra_params
+                  }
+                  res = session.get(BASE_URL, params=params)
+                  res.raise_for_status()
+                  data = res.json().get(root_name, {})
+                  total = int(data.get("totalNumberResults", 0))
+                  items = data.get(key_name, [])
+                  if isinstance(items, dict):
+                      items = [items]
+                  records.extend(items)
+                  offset += page_size
+                  if offset >= total or not items:
+                      break
+                  time.sleep(0.1)
+              return records
+
+          walkers = fetch_paginated("getParticipants", {"first_name": "%%%"}, "participant", "getParticipantsResponse")
+          teams = fetch_paginated("getTeamsByInfo", {"team_name": "%%%"}, "team", "getTeamSearchByInfoResponse")
+          companies = fetch_paginated("getCompaniesByInfo", {"company_name": "%%%"}, "company", "getCompaniesResponse")
+
+          dataset = {
+              "updated_at": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
+              "walkers": walkers,
+              "teams": teams,
+              "companies": companies
+          }
+
+          with open("heartwalk_data.json", "w", encoding="utf-8") as f:
+              json.dump(dataset, f, indent=2)
+          print("Saved heartwalk_data.json successfully")
+          EOF
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add heartwalk_data.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update Heart Walk data" && git push)
