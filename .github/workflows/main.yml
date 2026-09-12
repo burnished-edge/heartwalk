@@ -71,7 +71,6 @@ jobs:
 
                   records.extend(items)
                   total = int(data.get("totalNumberResults", len(records)))
-                  print(f"[{method}] Page {page_idx}: retrieved {len(items)} items ({len(records)}/{total})")
 
                   page_idx += 1
                   if len(records) >= total or len(items) < page_size:
@@ -89,18 +88,27 @@ jobs:
           companies = fetch_paginated("getCompaniesByInfo", {"company_name": "%%%"}, "company", "getCompaniesResponse")
           print(f"Total Companies: {len(companies)}")
 
-          print("--- 3. Fetching Primary Walkers (getParticipants) ---")
-          primary_walkers = fetch_paginated("getParticipants", {"first_name": "%%%"}, "participant", "getParticipantsResponse")
-
           walker_dict = {}
-          for w in primary_walkers:
+
+          print("--- 3. Fetching Walkers (First-Name Wildcard) ---")
+          primary_fn = fetch_paginated("getParticipants", {"first_name": "%%%"}, "participant", "getParticipantsResponse")
+          for w in primary_fn:
               cid = w.get("consId")
               if cid:
                   walker_dict[cid] = w
+          print(f"Walkers after first_name query: {len(walker_dict)}")
 
-          print(f"Primary Walkers with active pages: {len(walker_dict)}")
+          print("--- 4. Fetching Walkers (Last-Name Wildcard Sweep) ---")
+          primary_ln = fetch_paginated("getParticipants", {"last_name": "%%%"}, "participant", "getParticipantsResponse")
+          new_ln = 0
+          for w in primary_ln:
+              cid = w.get("consId")
+              if cid and cid not in walker_dict:
+                  walker_dict[cid] = w
+                  new_ln += 1
+          print(f"Added {new_ln} unaffiliated walkers caught via last_name query.")
 
-          print("--- 4. Checking Team Rosters for Additional Members ---")
+          print("--- 5. Checking Team Rosters for Unlisted Members ---")
           for idx, team in enumerate(teams):
               team_id = team.get("id")
               if not team_id:
@@ -125,9 +133,6 @@ jobs:
                           m["companyName"] = team.get("companyName")
                       walker_dict[cid] = m
                       added += 1
-
-              if added > 0:
-                  print(f"Team '{team.get('name')}' added {added} roster-only members.")
 
           print(f"\nFinal Consolidated Walker Count: {len(walker_dict)}")
 
