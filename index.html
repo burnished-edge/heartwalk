@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Heart Walk Full Data Extractor</title>
+  <title>Heart Walk Full Data Extractor (GitHub Pages Compatible)</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -40,9 +40,6 @@
       margin-top: 0;
       margin-bottom: 8px;
       font-size: 1.4rem;
-      display: flex;
-      align-items: center;
-      gap: 10px;
     }
     p {
       color: var(--muted);
@@ -114,7 +111,7 @@
       font-family: monospace;
       font-size: 0.8rem;
       color: var(--console-text);
-      height: 180px;
+      height: 200px;
       overflow-y: auto;
       margin-top: 20px;
       white-space: pre-wrap;
@@ -146,7 +143,7 @@
     <div class="progress-fill" id="progress"></div>
   </div>
 
-  <button id="start-btn" onclick="startExtraction()">Start Full Extraction & Download JSON</button>
+  <button id="start-btn" onclick="startExtraction()">Start Extraction & Download JSON</button>
 
   <div id="console">Ready to begin...</div>
 </div>
@@ -155,7 +152,7 @@
   const BASE_URL = "https://www2.heart.org/site/CRTeamraiserAPI";
   const API_KEY = "wDB09SQODRpVIOvX";
   const FR_ID = "13179";
-  const PAGE_SIZE = 500; // TeamRaiser max allowed per request
+  const PAGE_SIZE = 500;
 
   const logBox = document.getElementById("console");
   const btn = document.getElementById("start-btn");
@@ -172,24 +169,38 @@
     return [data];
   }
 
-  async function apiCall(method, extraParams = {}) {
-  const params = new URLSearchParams({
-    method,
-    fr_id: FR_ID,
-    v: "1.0",
-    response_format: "json",
-    api_key: API_KEY,
-    ...extraParams
-  });
+  // JSONP requester to avoid CORS and 403 proxy blocks
+  function jsonp(method, extraParams = {}) {
+    return new Promise((resolve, reject) => {
+      const callbackName = "jsonp_cb_" + Math.random().toString(36).substring(2, 9);
+      const params = new URLSearchParams({
+        method,
+        fr_id: FR_ID,
+        v: "1.0",
+        response_format: "json",
+        api_key: API_KEY,
+        callback: callbackName,
+        ...extraParams
+      });
 
-  const targetUrl = `${BASE_URL}?${params.toString()}`;
-  // Use corsproxy.io to bypass browser cross-origin blocks
-  const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+      const script = document.createElement("script");
+      script.src = `${BASE_URL}?${params.toString()}`;
 
-  const res = await fetch(proxyUrl);
-  if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-  return await res.json();
-}
+      window[callbackName] = function (data) {
+        delete window[callbackName];
+        document.body.removeChild(script);
+        resolve(data);
+      };
+
+      script.onerror = function () {
+        delete window[callbackName];
+        document.body.removeChild(script);
+        reject(new Error(`JSONP request failed for ${method}`));
+      };
+
+      document.body.appendChild(script);
+    });
+  }
 
   async function fetchAllPaged(method, rootKey, itemKey, filterKey) {
     let allRecords = [];
@@ -197,7 +208,7 @@
     let total = Infinity;
 
     while (offset < total) {
-      const res = await apiCall(method, {
+      const res = await jsonp(method, {
         [filterKey]: "%",
         list_page_size: PAGE_SIZE,
         list_page_offset: offset
@@ -214,7 +225,7 @@
 
       log(`  Fetched ${allRecords.length} / ${isNaN(total) ? '?' : total} records...`);
 
-      // Gentle pause between pages to respect API thresholds
+      // 250ms throttle between pagination cycles
       await new Promise(r => setTimeout(r, 250));
     }
 
@@ -223,14 +234,13 @@
 
   async function startExtraction() {
     btn.disabled = true;
-    logBox.textContent = "Starting extraction sequence...";
+    logBox.textContent = "Starting extraction sequence via JSONP...";
     progressBar.style.width = "5%";
 
     const masterOutput = {
       meta: {
         event_id: FR_ID,
-        extracted_at: new Date().toISOString(),
-        source: BASE_URL
+        extracted_at: new Date().toISOString()
       },
       campaign: {},
       companies: [],
@@ -239,39 +249,31 @@
     };
 
     try {
-      // 1. Campaign Summary
+      // 1. Campaign Overview
       log("1/4: Fetching campaign data...");
       try {
-        const campData = await apiCall("getTeamraiserData");
+        const campData = await jsonp("getTeamraiserData");
         masterOutput.campaign = campData.getTeamraiserDataResponse?.teamraiserData || {};
       } catch (e) {
-        log("  Notice: Could not load campaign overview, continuing...");
+        log("  Notice: Campaign summary skipped.");
       }
-      progressBar.style.width = "20%";
+      progressBar.style.width = "15%";
 
       // 2. Companies
       log("2/4: Extracting companies...");
       try {
         const rawCompanies = await fetchAllPaged("getCompaniesByInfo", "getCompaniesResponse", "company", "company_name");
-        masterOutput.companies = rawCompanies.map(c => ({
-          company_id: c.companyId || c.id,
-          company_name: c.companyName || c.name,
-          amount_raised_cents: c.amountRaised || c.amount || 0,
-          amount_raised_usd: (parseFloat(c.amountRaised || c.amount || 0) / 100).toFixed(2),
-          goal_usd: (parseFloat(c.goal || 0) / 100).toFixed(2),
-          num_teams: c.teamCount || c.numTeams || 0,
-          num_participants: c.participantCount || c.numParticipants || 0
-        }));
+        masterOutput.companies = rawCompanies;
       } catch (e) {
-        log("  Standard search failed. Falling back to Top Companies...");
-        const topComp = await apiCall("getTopCompaniesData");
+        log("  Company directory blocked, falling back to top companies leaderboard...");
+        const topComp = await jsonp("getTopCompaniesData");
         masterOutput.companies = toArray(topComp.getTopCompaniesDataResponse?.company);
       }
       document.getElementById("comp-count").textContent = masterOutput.companies.length;
-      progressBar.style.width = "40%";
+      progressBar.style.width = "35%";
 
       // 3. Teams
-      log("3/4: Extracting all teams...");
+      log("3/4: Extracting teams...");
       const rawTeams = await fetchAllPaged("getTeamsByInfo", "getTeamsResponse", "team", "team_name");
       masterOutput.teams = rawTeams.map(t => ({
         team_id: t.id,
@@ -280,50 +282,44 @@
         company_name: t.companyName || null,
         captain_name: `${t.captainFirstName || ''} ${t.captainLastName || ''}`.trim(),
         num_members: t.numMembers,
-        amount_raised_cents: t.amountRaised,
         amount_raised_usd: (parseFloat(t.amountRaised || 0) / 100).toFixed(2),
-        goal_usd: (parseFloat(t.goal || 0) / 100).toFixed(2),
-        division: t.divisionName || null
+        goal_usd: (parseFloat(t.goal || 0) / 100).toFixed(2)
       }));
       document.getElementById("team-count").textContent = masterOutput.teams.length;
-      progressBar.style.width = "70%";
+      progressBar.style.width = "65%";
 
-      // 4. Walkers / Participants
-      log("4/4: Extracting all walkers/participants...");
+      // 4. Walkers (Participants)
+      log("4/4: Extracting walkers (1,800+ records)...");
       const rawWalkers = await fetchAllPaged("getParticipants", "getParticipantsResponse", "participant", "first_name");
       masterOutput.walkers = rawWalkers.map(w => {
         const first = w.name?.first || w.firstName || "";
         const last = w.name?.last || w.lastName || "";
         return {
           cons_id: w.consId,
-          first_name: first,
-          last_name: last,
           full_name: `${first} ${last}`.trim(),
           team_id: w.teamId || null,
           team_name: w.teamName || null,
           company_id: w.companyId || null,
-          amount_raised_cents: w.amountRaised,
           amount_raised_usd: (parseFloat(w.amountRaised || 0) / 100).toFixed(2),
-          goal_usd: (parseFloat(w.goal || 0) / 100).toFixed(2),
-          is_captain: w.isCaptain === "true" || w.isCaptain === true
+          goal_usd: (parseFloat(w.goal || 0) / 100).toFixed(2)
         };
       });
       document.getElementById("walk-count").textContent = masterOutput.walkers.length;
       progressBar.style.width = "100%";
 
-      // Trigger automatic file download
-      log("Merging datasets and downloading combined JSON...");
+      // Download complete JSON output
+      log("Generating download file...");
       const blob = new Blob([JSON.stringify(masterOutput, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `heart_walk_event_${FR_ID}_full_export.json`;
+      a.download = `heart_walk_${FR_ID}_complete.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      log("Extraction complete! Download started.");
+      log("Extraction complete! File downloaded.");
     } catch (err) {
       log(`Error encountered: ${err.message}`);
     } finally {
