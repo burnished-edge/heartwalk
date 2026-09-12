@@ -2,8 +2,9 @@ name: Update Heart Walk Data
 
 on:
   schedule:
-    - cron: '0 6 * * *'  # Runs daily at 6 AM UTC
-  workflow_dispatch:      # Allows manual 1-click trigger
+    - cron: '0 */6 * * *'  # Runs every 6 hours
+  workflow_dispatch:        # Manual 1-click run from GitHub UI
+  repository_dispatch:      # Allows triggering via simple curl/webhook without logging into GitHub UI
 
 jobs:
   scrape:
@@ -34,10 +35,12 @@ jobs:
           session = requests.Session()
           session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
 
-          def fetch_paginated(method, extra_params, key_name, root_name):
+          def fetch_all_records(method, extra_params, key_name, root_name):
               records = []
               offset = 0
               page_size = 500
+              total_count = None
+
               while True:
                   params = {
                       "method": method,
@@ -45,35 +48,61 @@ jobs:
                       "v": "1.0",
                       "response_format": "json",
                       "fr_id": FR_ID,
-                      "list_page_size": page_size,
-                      "list_page_offset": offset,
+                      "list_page_size": str(page_size),
+                      "list_page_offset": str(offset),
                       **extra_params
                   }
-                  res = session.get(BASE_URL, params=params)
+                  
+                  print(f"[{method}] Requesting offset={offset}, size={page_size}...")
+                  res = session.get(BASE_URL, params=params, timeout=30)
                   res.raise_for_status()
                   data = res.json().get(root_name, {})
-                  total = int(data.get("totalNumberResults", 0))
+
+                  if total_count is None:
+                      total_count = int(data.get("totalNumberResults", 0))
+                      print(f"[{method}] Server reports total items: {total_count}")
+
                   items = data.get(key_name, [])
                   if isinstance(items, dict):
                       items = [items]
-                  records.extend(items)
-                  offset += page_size
-                  if offset >= total or not items:
+
+                  if not items:
+                      print(f"[{method}] No items returned at offset {offset}. Done.")
                       break
-                  time.sleep(0.1)
+
+                  records.extend(items)
+                  print(f"[{method}] Collected {len(records)} of {total_count}...")
+
+                  offset += len(items)
+                  if offset >= total_count or len(items) < page_size:
+                      break
+                  
+                  time.sleep(0.15)
+
               return records
 
-          print("Fetching walkers...")
-          walkers = fetch_paginated("getParticipants", {"first_name": "%%%"}, "participant", "getParticipantsResponse")
+          print("--- Fetching Walkers ---")
+          # Use both first and last name wildcard fallbacks if needed
+          walkers = fetch_all_records("getParticipants", {"first_name": "%%%"}, "participant", "getParticipantsResponse")
+          if len(walkers) < 1000:
+              # Fallback to last_name wildcard if first_name was throttled by Convio
+              walkers_alt = fetch_all_records("getParticipants", {"last_name": "%%%"}, "participant", "getParticipantsResponse")
+              # Deduplicate by consId
+              walker_map = {w.get("consId"): w for w in walkers + walkers_alt if w.get("consId")}
+              walkers = list(walker_map.values())
 
-          print("Fetching teams...")
-          teams = fetch_paginated("getTeamsByInfo", {"team_name": "%%%"}, "team", "getTeamSearchByInfoResponse")
+          print(f"Total Walkers Retrieved: {len(walkers)}")
 
-          print("Fetching companies...")
-          companies = fetch_paginated("getCompaniesByInfo", {"company_name": "%%%"}, "company", "getCompaniesResponse")
+          print("--- Fetching Teams ---")
+          teams = fetch_all_records("getTeamsByInfo", {"team_name": "%%%"}, "team", "getTeamSearchByInfoResponse")
+          print(f"Total Teams Retrieved: {len(teams)}")
+
+          print("--- Fetching Companies ---")
+          companies = fetch_all_records("getCompaniesByInfo", {"company_name": "%%%"}, "company", "getCompaniesResponse")
+          print(f"Total Companies Retrieved: {len(companies)}")
 
           dataset = {
-              "updated_at": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
+              "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
               "walkers": walkers,
               "teams": teams,
               "companies": companies
@@ -81,7 +110,7 @@ jobs:
 
           with open("heartwalk_data.json", "w", encoding="utf-8") as f:
               json.dump(dataset, f, indent=2)
-          print("Saved heartwalk_data.json successfully")
+          print("Saved heartwalk_data.json successfully.")
           EOF
 
       - name: Commit and push changes
@@ -89,4 +118,4 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add heartwalk_data.json
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update Heart Walk data" && git push)
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update Heart Walk data [$(date -u +'%Y-%m-%d %H:%M')]" && git push)
