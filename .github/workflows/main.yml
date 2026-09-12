@@ -2,9 +2,9 @@ name: Update Heart Walk Data
 
 on:
   schedule:
-    - cron: '0 */6 * * *'  # Runs every 6 hours
-  workflow_dispatch:        # Manual 1-click run from GitHub UI
-  repository_dispatch:      # Allows triggering via simple curl/webhook without logging into GitHub UI
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+  repository_dispatch:
 
 jobs:
   scrape:
@@ -26,7 +26,9 @@ jobs:
       - name: Fetch and compile Heart Walk data
         run: |
           python - << 'EOF'
-          import requests, json, time
+          import requests
+          import json
+          import time
 
           API_KEY = "wDB09SQODRpVIOvX"
           FR_ID = "13179"
@@ -35,11 +37,10 @@ jobs:
           session = requests.Session()
           session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
 
-          def fetch_all_records(method, extra_params, key_name, root_name):
+          def fetch_paginated(method, extra_params, key_name, root_name):
               records = []
-              offset = 0
+              page_idx = 0
               page_size = 500
-              total_count = None
 
               while True:
                   params = {
@@ -49,68 +50,98 @@ jobs:
                       "response_format": "json",
                       "fr_id": FR_ID,
                       "list_page_size": str(page_size),
-                      "list_page_offset": str(offset),
+                      "list_page_offset": str(page_idx),
                       **extra_params
                   }
-                  
-                  print(f"[{method}] Requesting offset={offset}, size={page_size}...")
-                  res = session.get(BASE_URL, params=params, timeout=30)
-                  res.raise_for_status()
-                  data = res.json().get(root_name, {})
 
-                  if total_count is None:
-                      total_count = int(data.get("totalNumberResults", 0))
-                      print(f"[{method}] Server reports total items: {total_count}")
+                  try:
+                      res = session.get(BASE_URL, params=params, timeout=30)
+                      res.raise_for_status()
+                      data = res.json().get(root_name, {})
+                  except Exception as e:
+                      print(f"[{method}] Error on page {page_idx}: {e}")
+                      break
 
                   items = data.get(key_name, [])
                   if isinstance(items, dict):
                       items = [items]
 
                   if not items:
-                      print(f"[{method}] No items returned at offset {offset}. Done.")
                       break
 
                   records.extend(items)
-                  print(f"[{method}] Collected {len(records)} of {total_count}...")
+                  total = int(data.get("totalNumberResults", len(records)))
+                  print(f"[{method}] Page {page_idx}: retrieved {len(items)} items ({len(records)}/{total})")
 
-                  offset += len(items)
-                  if offset >= total_count or len(items) < page_size:
+                  page_idx += 1
+                  if len(records) >= total or len(items) < page_size:
                       break
-                  
+
                   time.sleep(0.15)
 
               return records
 
-          print("--- Fetching Walkers ---")
-          # Use both first and last name wildcard fallbacks if needed
-          walkers = fetch_all_records("getParticipants", {"first_name": "%%%"}, "participant", "getParticipantsResponse")
-          if len(walkers) < 1000:
-              # Fallback to last_name wildcard if first_name was throttled by Convio
-              walkers_alt = fetch_all_records("getParticipants", {"last_name": "%%%"}, "participant", "getParticipantsResponse")
-              # Deduplicate by consId
-              walker_map = {w.get("consId"): w for w in walkers + walkers_alt if w.get("consId")}
-              walkers = list(walker_map.values())
+          print("--- 1. Fetching Teams ---")
+          teams = fetch_paginated("getTeamsByInfo", {"team_name": "%%%"}, "team", "getTeamSearchByInfoResponse")
+          print(f"Total Teams: {len(teams)}")
 
-          print(f"Total Walkers Retrieved: {len(walkers)}")
+          print("--- 2. Fetching Companies ---")
+          companies = fetch_paginated("getCompaniesByInfo", {"company_name": "%%%"}, "company", "getCompaniesResponse")
+          print(f"Total Companies: {len(companies)}")
 
-          print("--- Fetching Teams ---")
-          teams = fetch_all_records("getTeamsByInfo", {"team_name": "%%%"}, "team", "getTeamSearchByInfoResponse")
-          print(f"Total Teams Retrieved: {len(teams)}")
+          print("--- 3. Fetching Primary Walkers (getParticipants) ---")
+          primary_walkers = fetch_paginated("getParticipants", {"first_name": "%%%"}, "participant", "getParticipantsResponse")
 
-          print("--- Fetching Companies ---")
-          companies = fetch_all_records("getCompaniesByInfo", {"company_name": "%%%"}, "company", "getCompaniesResponse")
-          print(f"Total Companies Retrieved: {len(companies)}")
+          walker_dict = {}
+          for w in primary_walkers:
+              cid = w.get("consId")
+              if cid:
+                  walker_dict[cid] = w
+
+          print(f"Primary Walkers with active pages: {len(walker_dict)}")
+
+          print("--- 4. Checking Team Rosters for Additional Members ---")
+          for idx, team in enumerate(teams):
+              team_id = team.get("id")
+              if not team_id:
+                  continue
+
+              team_members = fetch_paginated(
+                  "getTeamParticipants",
+                  {"team_id": str(team_id)},
+                  "participant",
+                  "getTeamParticipantsResponse"
+              )
+
+              added = 0
+              for m in team_members:
+                  cid = m.get("consId")
+                  if cid and cid not in walker_dict:
+                      if "teamName" not in m:
+                          m["teamName"] = team.get("name", "—")
+                      if "teamId" not in m:
+                          m["teamId"] = team_id
+                      if "companyName" not in m and team.get("companyName"):
+                          m["companyName"] = team.get("companyName")
+                      walker_dict[cid] = m
+                      added += 1
+
+              if added > 0:
+                  print(f"Team '{team.get('name')}' added {added} roster-only members.")
+
+          print(f"\nFinal Consolidated Walker Count: {len(walker_dict)}")
 
           dataset = {
               "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-              "walkers": walkers,
+              "walkers": list(walker_dict.values()),
               "teams": teams,
               "companies": companies
           }
 
           with open("heartwalk_data.json", "w", encoding="utf-8") as f:
               json.dump(dataset, f, indent=2)
-          print("Saved heartwalk_data.json successfully.")
+
+          print("heartwalk_data.json updated successfully.")
           EOF
 
       - name: Commit and push changes
