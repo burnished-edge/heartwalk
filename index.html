@@ -1,263 +1,636 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Heart Walk Leaderboard & Data Explorer</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AHA Heart Walk — Campaign Ops Console</title>
   <style>
     :root {
       --bg: #0f172a;
-      --card-bg: #1e293b;
+      --card: #1e293b;
       --border: #334155;
       --text: #f8fafc;
       --muted: #94a3b8;
-      --red: #ef4444;
-      --accent: #38bdf8;
+      --accent: #ef4444; /* Heart Walk AHA Red */
+      --accent-hover: #dc2626;
+      --green: #4ade80;
+      --red: #f87171;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: var(--bg);
+    }
+    body {
+      background-color: var(--bg);
       color: var(--text);
       padding: 24px;
-      line-height: 1.5;
     }
-    .container { max-width: 1200px; margin: 0 auto; }
-    header { margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px; }
-    h1 { font-size: 24px; font-weight: 700; color: #fff; }
-    .timestamp { font-size: 13px; color: var(--muted); }
-    
-    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
-    .tab-btn {
-      background: var(--card-bg);
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #fff;
+    }
+    .status-text {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .kpi-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 18px;
+      border-radius: 8px;
+    }
+    .kpi-label {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .kpi-val {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--green);
+    }
+    .controls {
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 16px;
+      border-radius: 8px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      margin-bottom: 20px;
+    }
+    input[type="text"],
+    select {
+      background: var(--bg);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 8px 18px;
+      padding: 8px 12px;
       border-radius: 6px;
+      font-size: 0.9rem;
+      outline: none;
+      height: 38px;
+    }
+    input[type="text"]:focus,
+    select:focus {
+      border-color: var(--accent);
+    }
+    .btn {
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: none;
       cursor: pointer;
-      font-weight: 500;
-      transition: all 0.2s;
+      transition: 0.2s;
+      font-size: 0.9rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 38px;
+      white-space: nowrap;
     }
-    .tab-btn.active { background: var(--red); border-color: var(--red); color: white; }
-    
-    .toolbar { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-    .search-box {
-      flex: 1;
-      min-width: 260px;
-      padding: 9px 14px;
-      background: var(--card-bg);
+    .btn:hover {
+      background: var(--accent-hover);
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: transparent;
       border: 1px solid var(--border);
-      border-radius: 6px;
-      color: white;
-      font-size: 14px;
+      color: var(--text);
     }
-    .search-box:focus { outline: none; border-color: var(--accent); }
-    
+    .btn-secondary:hover {
+      background: var(--border);
+    }
     .table-container {
-      background: var(--card-bg);
+      background: var(--card);
       border: 1px solid var(--border);
       border-radius: 8px;
       overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
     }
-    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.9rem;
+    }
     th {
-      background: #182234;
-      padding: 12px 16px;
-      font-weight: 600;
-      color: var(--muted);
+      background: #162032;
+      padding: 12px 14px;
       border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.75rem;
       cursor: pointer;
       user-select: none;
       white-space: nowrap;
     }
-    th:hover { color: white; }
+    th:hover {
+      color: var(--text);
+    }
     td {
-      padding: 12px 16px;
+      padding: 12px 14px;
       border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    tr:hover {
+      background: #24324a;
+    }
+    .col-wrap {
+      min-width: 140px;
+      max-width: 220px;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      line-height: 1.35;
+      font-size: 0.85rem;
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
       white-space: nowrap;
     }
-    tr:last-child td { border-bottom: none; }
-    tr:hover td { background: rgba(255, 255, 255, 0.02); }
-    .amount { font-weight: 600; color: #4ade80; font-family: monospace; font-size: 15px; }
-    .status-badge {
-      display: inline-block;
-      padding: 2px 8px;
-      font-size: 12px;
-      border-radius: 4px;
-      background: #334155;
-      color: var(--text);
+    .badge-active {
+      background: rgba(74, 222, 128, 0.1);
+      color: var(--green);
+    }
+    .badge-zero {
+      background: rgba(248, 113, 113, 0.1);
+      color: var(--red);
+    }
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .tab-group {
+      display: flex;
+      gap: 8px;
+    }
+    .tab {
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.85rem;
+      height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .tab.active {
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      border-color: var(--accent);
+    }
+    .file-input {
+      display: none;
+    }
+    @media (max-width: 768px) {
+      body { padding: 12px; }
+      header { flex-direction: column; align-items: stretch; }
+      .controls { flex-direction: column; align-items: stretch; }
+      .kpi-grid { grid-template-columns: 1fr 1fr; }
     }
   </style>
 </head>
 <body>
 
-<div class="container">
   <header>
     <div>
-      <h1>AHA Heart Walk Data Explorer</h1>
-      <div id="statusText" class="timestamp">Loading data...</div>
+      <h1>AHA Heart Walk — Campaign Ops Console</h1>
+      <p class="status-text" id="syncStatus">Loading dataset...</p>
+    </div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+      <button class="btn" id="refreshBtn" onclick="loadData(true)">↻ Refresh Data</button>
+      <button class="btn btn-secondary" onclick="exportJSON()">Export JSON</button>
+      <button class="btn btn-secondary" onclick="exportCSV()">Export CSV</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('fileUpload').click()">+ Load Backup</button>
+      <input type="file" id="fileUpload" class="file-input" accept=".json" onchange="handleFileUpload(event)" />
     </div>
   </header>
 
-  <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('walkers')">Walkers (<span id="countWalkers">0</span>)</button>
-    <button class="tab-btn" onclick="switchTab('teams')">Teams (<span id="countTeams">0</span>)</button>
-    <button class="tab-btn" onclick="switchTab('companies')">Companies (<span id="countCompanies">0</span>)</button>
-  </div>
+  <section class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label" id="kpiVolumeLabel">Total Raised (Walkers)</div>
+      <div class="kpi-val" id="kpiTotalRaised">$0.00</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Active Walkers</div>
+      <div class="kpi-val" id="kpiFundraisers" style="color: #fff;">0</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Teams / Companies</div>
+      <div class="kpi-val" id="kpiTeams" style="color: #38bdf8;">0</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Inactives ($0 Raised)</div>
+      <div class="kpi-val" id="kpiZeroes" style="color: var(--red);">0</div>
+    </div>
+  </section>
 
-  <div class="toolbar">
-    <input type="text" id="searchInput" class="search-box" placeholder="Search by name, team, company..." oninput="handleSearch()">
-  </div>
+  <section class="controls">
+    <div class="tab-group">
+      <button class="tab active" id="tabIndiv" onclick="setView('INDIVIDUAL')">Walkers</button>
+      <button class="tab" id="tabTeam" onclick="setView('TEAMS')">Teams</button>
+      <button class="tab" id="tabCompany" onclick="setView('COMPANIES')">Companies</button>
+    </div>
 
-  <div class="table-container">
+    <input type="text" id="searchInput" placeholder="Search names, teams, companies..." oninput="applyFilters()" style="flex: 1; min-width: 180px;" />
+
+    <select id="teamFilter" onchange="applyFilters()">
+      <option value="">All Teams</option>
+    </select>
+
+    <select id="companyFilter" onchange="applyFilters()">
+      <option value="">All Companies</option>
+    </select>
+
+    <select id="statusFilter" onchange="applyFilters()">
+      <option value="ALL">All Amounts</option>
+      <option value="HAS_RAISED">Has Raised (> $0)</option>
+      <option value="ZERO">$0 Raised (Follow-up needed)</option>
+    </select>
+  </section>
+
+  <section class="table-container">
     <table id="dataTable">
-      <thead id="tableHead"></thead>
+      <thead>
+        <tr id="tableHeaders"></tr>
+      </thead>
       <tbody id="tableBody"></tbody>
     </table>
-  </div>
-</div>
+  </section>
 
-<script>
-  let rawData = { walkers: [], teams: [], companies: [] };
-  let currentTab = 'walkers';
-  let sortColumn = 'amount';
-  let sortAscending = false;
+  <script>
+    let rawData = { walkers: [], teams: [], companies: [] };
+    let currentView = 'INDIVIDUAL';
+    let sortCol = 'total';
+    let sortAsc = false;
 
-  async function loadData() {
-    try {
-      const res = await fetch('./heartwalk_data.json');
-      if (!res.ok) throw new Error("Could not find heartwalk_data.json. Run the workflow/script first.");
-      const json = await res.json();
-      
+    function setView(view) {
+      currentView = view;
+      document.getElementById('tabIndiv').classList.toggle('active', view === 'INDIVIDUAL');
+      document.getElementById('tabTeam').classList.toggle('active', view === 'TEAMS');
+      document.getElementById('tabCompany').classList.toggle('active', view === 'COMPANIES');
+
+      document.getElementById('teamFilter').style.display = (view === 'INDIVIDUAL') ? 'inline-block' : 'none';
+      document.getElementById('companyFilter').style.display = (view === 'INDIVIDUAL' || view === 'TEAMS') ? 'inline-block' : 'none';
+
+      sortCol = 'total';
+      sortAsc = false;
+      renderHeaders();
+      updateKPIs();
+      applyFilters();
+    }
+
+    function renderHeaders() {
+      const tr = document.getElementById('tableHeaders');
+      if (currentView === 'INDIVIDUAL') {
+        tr.innerHTML = `
+          <th onclick="setSort('name')">Walker Name ⬍</th>
+          <th class="col-wrap" onclick="setSort('teamName')">Team ⬍</th>
+          <th class="col-wrap" onclick="setSort('companyName')">Company ⬍</th>
+          <th onclick="setSort('total')">Raised ⬍</th>
+          <th onclick="setSort('goal')">Goal ⬍</th>
+          <th>ID / ConsID</th>
+        `;
+      } else if (currentView === 'TEAMS') {
+        tr.innerHTML = `
+          <th onclick="setSort('name')">Team Name ⬍</th>
+          <th onclick="setSort('captain')">Captain ⬍</th>
+          <th class="col-wrap" onclick="setSort('companyName')">Company ⬍</th>
+          <th onclick="setSort('numMembers')">Members ⬍</th>
+          <th onclick="setSort('total')">Team Raised ⬍</th>
+          <th onclick="setSort('goal')">Goal ⬍</th>
+          <th>Team ID</th>
+        `;
+      } else {
+        tr.innerHTML = `
+          <th onclick="setSort('name')">Company Name ⬍</th>
+          <th onclick="setSort('teamCount')">Teams ⬍</th>
+          <th onclick="setSort('participantCount')">Walkers ⬍</th>
+          <th onclick="setSort('total')">Company Raised ⬍</th>
+          <th onclick="setSort('goal')">Goal ⬍</th>
+          <th>Company ID</th>
+        `;
+      }
+    }
+
+    function setSort(col) {
+      if (sortCol === col) {
+        sortAsc = !sortAsc;
+      } else {
+        sortCol = col;
+        sortAsc = (col === 'name');
+      }
+      applyFilters();
+    }
+
+    function updateKPIs() {
+      const walkers = rawData.walkers || [];
+      const teams = rawData.teams || [];
+      const companies = rawData.companies || [];
+
+      let walkerRaised = walkers.reduce((acc, w) => acc + (w.total || 0), 0);
+      let zeroes = walkers.filter(w => (w.total || 0) === 0).length;
+
+      let teamsRaised = teams.reduce((acc, t) => acc + (t.total || 0), 0);
+      let compRaised = companies.reduce((acc, c) => acc + (c.total || 0), 0);
+
+      const labelEl = document.getElementById('kpiVolumeLabel');
+      let displayVolume = walkerRaised;
+
+      if (currentView === 'INDIVIDUAL') {
+        displayVolume = walkerRaised;
+        labelEl.innerText = "Total Raised (Walkers)";
+      } else if (currentView === 'TEAMS') {
+        displayVolume = teamsRaised;
+        labelEl.innerText = "Total Raised (Teams)";
+      } else {
+        displayVolume = compRaised;
+        labelEl.innerText = "Total Raised (Companies)";
+      }
+
+      document.getElementById('kpiTotalRaised').innerText = `$${displayVolume.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+      document.getElementById('kpiFundraisers').innerText = walkers.length.toLocaleString();
+      document.getElementById('kpiTeams').innerText = `${teams.length}T / ${companies.length}C`;
+      document.getElementById('kpiZeroes').innerText = zeroes.toLocaleString();
+    }
+
+    function populateDropdowns() {
+      const selTeam = document.getElementById('teamFilter');
+      const selComp = document.getElementById('companyFilter');
+      const teams = new Set();
+      const companies = new Set();
+
+      (rawData.walkers || []).forEach(w => {
+        if (w.teamName && w.teamName !== '—') teams.add(w.teamName);
+        if (w.companyName && w.companyName !== '—') companies.add(w.companyName);
+      });
+
+      (rawData.teams || []).forEach(t => {
+        if (t.companyName && t.companyName !== '—') companies.add(t.companyName);
+      });
+
+      selTeam.innerHTML = '<option value="">All Teams</option>';
+      Array.from(teams).sort().forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.innerText = t;
+        selTeam.appendChild(opt);
+      });
+
+      selComp.innerHTML = '<option value="">All Companies</option>';
+      Array.from(companies).sort().forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.innerText = c;
+        selComp.appendChild(opt);
+      });
+    }
+
+    function applyFilters() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const team = document.getElementById('teamFilter').value;
+      const company = document.getElementById('companyFilter').value;
+      const status = document.getElementById('statusFilter').value;
+      const tbody = document.getElementById('tableBody');
+      tbody.innerHTML = '';
+
+      let list = [];
+      if (currentView === 'INDIVIDUAL') {
+        list = (rawData.walkers || []).filter(w => {
+          const matchSearch = (w.name || '').toLowerCase().includes(search) ||
+                              (w.teamName || '').toLowerCase().includes(search) ||
+                              (w.companyName || '').toLowerCase().includes(search) ||
+                              (w.id || '').includes(search);
+
+          const matchTeam = !team || w.teamName === team;
+          const matchCompany = !company || w.companyName === company;
+          const matchStatus = status === 'ALL' ||
+                              (status === 'HAS_RAISED' && (w.total || 0) > 0) ||
+                              (status === 'ZERO' && (w.total || 0) === 0);
+
+          return matchSearch && matchTeam && matchCompany && matchStatus;
+        });
+      } else if (currentView === 'TEAMS') {
+        list = (rawData.teams || []).filter(t => {
+          const matchSearch = (t.name || '').toLowerCase().includes(search) ||
+                              (t.captain || '').toLowerCase().includes(search) ||
+                              (t.companyName || '').toLowerCase().includes(search);
+          const matchCompany = !company || t.companyName === company;
+          return matchSearch && matchCompany;
+        });
+      } else {
+        list = (rawData.companies || []).filter(c => {
+          return (c.name || '').toLowerCase().includes(search);
+        });
+      }
+
+      list.sort((a, b) => {
+        let vA = a[sortCol];
+        let vB = b[sortCol];
+        if (typeof vA === 'string') return sortAsc ? vA.localeCompare(vB) : vB.localeCompare(vA);
+        return sortAsc ? (vA || 0) - (vB || 0) : (vB || 0) - (vA || 0);
+      });
+
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 24px; color: var(--muted);">No matching entries found.</td></tr>`;
+        return;
+      }
+
+      if (currentView === 'INDIVIDUAL') {
+        list.forEach(w => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${w.name}</strong></td>
+            <td class="col-wrap">${w.teamName}</td>
+            <td class="col-wrap">${w.companyName}</td>
+            <td><span class="badge ${w.total > 0 ? 'badge-active' : 'badge-zero'}">$${w.total.toLocaleString(undefined, {minimumFractionDigits: 2})}</span></td>
+            <td>$${w.goal.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+            <td class="mono">${w.id}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } else if (currentView === 'TEAMS') {
+        list.forEach(t => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${t.name}</strong></td>
+            <td>${t.captain}</td>
+            <td class="col-wrap">${t.companyName}</td>
+            <td>${t.numMembers}</td>
+            <td><span class="badge badge-active">$${t.total.toLocaleString(undefined, {minimumFractionDigits: 2})}</span></td>
+            <td>$${t.goal.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+            <td class="mono">${t.id}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } else {
+        list.forEach(c => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${c.name}</strong></td>
+            <td>${c.teamCount}</td>
+            <td>${c.participantCount}</td>
+            <td><span class="badge badge-active">$${c.total.toLocaleString(undefined, {minimumFractionDigits: 2})}</span></td>
+            <td>$${c.goal.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+            <td class="mono">${c.id}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+    }
+
+    function processIncomingData(json, label = "Data Loaded") {
+      // Map company lookups from teams/companies
+      const compMap = {};
+      (json.companies || []).forEach(c => {
+        compMap[c.companyId] = c.companyName;
+      });
+
+      const teamCompanyMap = {};
+      (json.teams || []).forEach(t => {
+        if (t.companyName) teamCompanyMap[t.id] = t.companyName;
+      });
+
       rawData.walkers = (json.walkers || []).map(w => ({
-        name: `${w.name?.first || ''} ${w.name?.last || ''}`.trim(),
-        team: w.teamName || '—',
-        amount: parseFloat(w.amountRaised || 0) / 100,
-        goal: parseFloat(w.goal || 0) / 100,
-        id: w.consId
+        name: `${w.name?.first || ''} ${w.name?.last || ''}`.trim() || 'Anonymous',
+        teamName: w.teamName || '—',
+        companyName: w.companyName || teamCompanyMap[w.teamId] || '—',
+        total: (parseFloat(w.amountRaised || 0) / 100),
+        goal: (parseFloat(w.goal || 0) / 100),
+        id: w.consId || '—'
       }));
 
       rawData.teams = (json.teams || []).map(t => ({
         name: t.name || '—',
-        captain: `${t.captainFirstName || ''} ${t.captainLastName || ''}`.trim(),
-        company: t.companyName || '—',
-        members: parseInt(t.numMembers || 0, 10),
-        amount: parseFloat(t.amountRaised || 0) / 100,
-        goal: parseFloat(t.goal || 0) / 100
+        captain: `${t.captainFirstName || ''} ${t.captainLastName || ''}`.trim() || '—',
+        companyName: t.companyName || '—',
+        numMembers: parseInt(t.numMembers || 0, 10),
+        total: (parseFloat(t.amountRaised || 0) / 100),
+        goal: (parseFloat(t.goal || 0) / 100),
+        id: t.id || '—'
       }));
 
       rawData.companies = (json.companies || []).map(c => ({
         name: c.companyName || '—',
-        amount: parseFloat(c.amountRaised || 0) / 100,
         teamCount: parseInt(c.teamCount || 0, 10),
-        walkerCount: parseInt(c.participantCount || 0, 10)
+        participantCount: parseInt(c.participantCount || 0, 10),
+        total: (parseFloat(c.amountRaised || 0) / 100),
+        goal: (parseFloat(c.goal || 0) / 100),
+        id: c.companyId || '—'
       }));
 
-      document.getElementById('countWalkers').innerText = rawData.walkers.length;
-      document.getElementById('countTeams').innerText = rawData.teams.length;
-      document.getElementById('countCompanies').innerText = rawData.companies.length;
-      document.getElementById('statusText').innerText = `Last updated: ${json.updated_at || 'Recently'}`;
+      populateDropdowns();
+      updateKPIs();
+      applyFilters();
 
-      render();
-    } catch (err) {
-      document.getElementById('statusText').innerHTML = `<span style="color:#ef4444">${err.message}</span>`;
-    }
-  }
-
-  function switchTab(tab) {
-    currentTab = tab;
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-    sortColumn = 'amount';
-    sortAscending = false;
-    render();
-  }
-
-  function setSort(col) {
-    if (sortColumn === col) {
-      sortAscending = !sortAscending;
-    } else {
-      sortColumn = col;
-      sortAscending = false;
-    }
-    render();
-  }
-
-  function handleSearch() {
-    render();
-  }
-
-  function render() {
-    const filter = (document.getElementById('searchInput').value || '').toLowerCase();
-    let records = [...rawData[currentTab]];
-
-    if (filter) {
-      records = records.filter(r => Object.values(r).some(val => String(val).toLowerCase().includes(filter)));
+      const statusEl = document.getElementById('syncStatus');
+      statusEl.innerText = `${label} (${rawData.walkers.length} walkers | Updated: ${json.updated_at || 'Recent'})`;
+      statusEl.style.color = "var(--green)";
     }
 
-    records.sort((a, b) => {
-      let valA = a[sortColumn];
-      let valB = b[sortColumn];
-      if (typeof valA === 'string') {
-        return sortAscending ? valA.localeCompare(valB) : valB.localeCompare(valA);
+    async function loadData(forceBust = false) {
+      const statusEl = document.getElementById('syncStatus');
+      statusEl.innerText = "Connecting to repository data...";
+      const bust = forceBust ? `?_=${Date.now()}` : '';
+
+      try {
+        const res = await fetch(`./heartwalk_data.json${bust}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        processIncomingData(json, "GitHub Pages Synchronized");
+      } catch (err) {
+        statusEl.innerText = `Load failed (${err.message}). If GitHub Pages is still building, click refresh shortly.`;
+        statusEl.style.color = "var(--red)";
       }
-      return sortAscending ? valA - valB : valB - valA;
-    });
-
-    const thead = document.getElementById('tableHead');
-    const tbody = document.getElementById('tableBody');
-
-    if (currentTab === 'walkers') {
-      thead.innerHTML = `
-        <tr>
-          <th onclick="setSort('name')">Name</th>
-          <th onclick="setSort('team')">Team</th>
-          <th onclick="setSort('amount')">Raised</th>
-          <th onclick="setSort('goal')">Goal</th>
-        </tr>`;
-      tbody.innerHTML = records.map(r => `
-        <tr>
-          <td><strong>${r.name}</strong></td>
-          <td>${r.team}</td>
-          <td class="amount">$${r.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-          <td>$${r.goal.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-        </tr>`).join('');
-    } else if (currentTab === 'teams') {
-      thead.innerHTML = `
-        <tr>
-          <th onclick="setSort('name')">Team Name</th>
-          <th onclick="setSort('captain')">Captain</th>
-          <th onclick="setSort('company')">Company</th>
-          <th onclick="setSort('members')">Members</th>
-          <th onclick="setSort('amount')">Raised</th>
-        </tr>`;
-      tbody.innerHTML = records.map(r => `
-        <tr>
-          <td><strong>${r.name}</strong></td>
-          <td>${r.captain}</td>
-          <td>${r.company}</td>
-          <td>${r.members}</td>
-          <td class="amount">$${r.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-        </tr>`).join('');
-    } else if (currentTab === 'companies') {
-      thead.innerHTML = `
-        <tr>
-          <th onclick="setSort('name')">Company Name</th>
-          <th onclick="setSort('teamCount')">Teams</th>
-          <th onclick="setSort('walkerCount')">Walkers</th>
-          <th onclick="setSort('amount')">Total Raised</th>
-        </tr>`;
-      tbody.innerHTML = records.map(r => `
-        <tr>
-          <td><strong>${r.name}</strong></td>
-          <td>${r.teamCount}</td>
-          <td>${r.walkerCount}</td>
-          <td class="amount">$${r.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-        </tr>`).join('');
     }
-  }
 
-  loadData();
-</script>
+    function exportJSON() {
+      if (!rawData.walkers.length) return alert("No data to export.");
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(rawData, null, 2));
+      const a = document.createElement('a');
+      a.href = dataStr;
+      a.download = `heartwalk_export_${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+    }
+
+    function exportCSV() {
+      if (!rawData.walkers.length) return alert("No data to export.");
+      let csv = '';
+      if (currentView === 'INDIVIDUAL') {
+        csv = 'Walker_ID,Name,Team_Name,Company_Name,Raised_USD,Goal_USD\n';
+        rawData.walkers.forEach(w => {
+          csv += `"${w.id}","${w.name}","${w.teamName}","${w.companyName}",${w.total},${w.goal}\n`;
+        });
+      } else if (currentView === 'TEAMS') {
+        csv = 'Team_ID,Team_Name,Captain,Company_Name,Members,Raised_USD,Goal_USD\n';
+        rawData.teams.forEach(t => {
+          csv += `"${t.id}","${t.name}","${t.captain}","${t.companyName}",${t.numMembers},${t.total},${t.goal}\n`;
+        });
+      } else {
+        csv = 'Company_ID,Company_Name,Teams,Walkers,Raised_USD,Goal_USD\n';
+        rawData.companies.forEach(c => {
+          csv += `"${c.id}","${c.name}",${c.teamCount},${c.participantCount},${c.total},${c.goal}\n`;
+        });
+      }
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `heartwalk_${currentView.toLowerCase()}_export.csv`;
+      a.click();
+    }
+
+    function handleFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          processIncomingData(JSON.parse(event.target.result), `Imported ${file.name}`);
+        } catch (err) {
+          alert("Invalid JSON format.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    renderHeaders();
+    loadData();
+  </script>
 </body>
 </html>
