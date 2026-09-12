@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Heart Walk Full Data Extractor</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --border: #334155;
+      --accent: #e11d48;
+      --accent-hover: #be123c;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --console-bg: #020617;
+      --console-text: #38bdf8;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    .widget-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      width: 100%;
+      max-width: 640px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+    h2 {
+      margin-top: 0;
+      margin-bottom: 8px;
+      font-size: 1.4rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    p {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-top: 0;
+      margin-bottom: 20px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .stat-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+    .stat-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+    }
+    .stat-val {
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-top: 4px;
+    }
+    .progress-bar {
+      height: 8px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      transition: width 0.2s ease;
+    }
+    button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.15s ease;
+    }
+    button:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    #console {
+      background: var(--console-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      font-family: monospace;
+      font-size: 0.8rem;
+      color: var(--console-text);
+      height: 180px;
+      overflow-y: auto;
+      margin-top: 20px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+
+<div class="widget-card">
+  <h2>❤️ Heart Walk Bulk Extractor</h2>
+  <p>Paginates through all companies, teams, and walkers for Event #13179 and packages them into a single consolidated JSON.</p>
+
+  <div class="grid">
+    <div class="stat-box">
+      <div class="stat-label">Companies</div>
+      <div class="stat-val" id="comp-count">0</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Teams</div>
+      <div class="stat-val" id="team-count">0</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Walkers</div>
+      <div class="stat-val" id="walk-count">0</div>
+    </div>
+  </div>
+
+  <div class="progress-bar">
+    <div class="progress-fill" id="progress"></div>
+  </div>
+
+  <button id="start-btn" onclick="startExtraction()">Start Full Extraction & Download JSON</button>
+
+  <div id="console">Ready to begin...</div>
+</div>
+
+<script>
+  const BASE_URL = "https://www2.heart.org/site/CRTeamraiserAPI";
+  const API_KEY = "wDB09SQODRpVIOvX";
+  const FR_ID = "13179";
+  const PAGE_SIZE = 500; // TeamRaiser max allowed per request
+
+  const logBox = document.getElementById("console");
+  const btn = document.getElementById("start-btn");
+  const progressBar = document.getElementById("progress");
+
+  function log(msg) {
+    logBox.textContent += `\n[${new Date().toLocaleTimeString()}] ${msg}`;
+    logBox.scrollTop = logBox.scrollHeight;
+  }
+
+  function toArray(data) {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    return [data];
+  }
+
+  async function apiCall(method, extraParams = {}) {
+  const params = new URLSearchParams({
+    method,
+    fr_id: FR_ID,
+    v: "1.0",
+    response_format: "json",
+    api_key: API_KEY,
+    ...extraParams
+  });
+
+  const targetUrl = `${BASE_URL}?${params.toString()}`;
+  // Use corsproxy.io to bypass browser cross-origin blocks
+  const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+
+  const res = await fetch(proxyUrl);
+  if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+  return await res.json();
+}
+
+  async function fetchAllPaged(method, rootKey, itemKey, filterKey) {
+    let allRecords = [];
+    let offset = 0;
+    let total = Infinity;
+
+    while (offset < total) {
+      const res = await apiCall(method, {
+        [filterKey]: "%",
+        list_page_size: PAGE_SIZE,
+        list_page_offset: offset
+      });
+
+      const root = res[rootKey] || {};
+      const items = toArray(root[itemKey]);
+
+      if (items.length === 0) break;
+
+      allRecords.push(...items);
+      total = parseInt(root.totalNumberResults || 0, 10);
+      offset += PAGE_SIZE;
+
+      log(`  Fetched ${allRecords.length} / ${isNaN(total) ? '?' : total} records...`);
+
+      // Gentle pause between pages to respect API thresholds
+      await new Promise(r => setTimeout(r, 250));
+    }
+
+    return allRecords;
+  }
+
+  async function startExtraction() {
+    btn.disabled = true;
+    logBox.textContent = "Starting extraction sequence...";
+    progressBar.style.width = "5%";
+
+    const masterOutput = {
+      meta: {
+        event_id: FR_ID,
+        extracted_at: new Date().toISOString(),
+        source: BASE_URL
+      },
+      campaign: {},
+      companies: [],
+      teams: [],
+      walkers: []
+    };
+
+    try {
+      // 1. Campaign Summary
+      log("1/4: Fetching campaign data...");
+      try {
+        const campData = await apiCall("getTeamraiserData");
+        masterOutput.campaign = campData.getTeamraiserDataResponse?.teamraiserData || {};
+      } catch (e) {
+        log("  Notice: Could not load campaign overview, continuing...");
+      }
+      progressBar.style.width = "20%";
+
+      // 2. Companies
+      log("2/4: Extracting companies...");
+      try {
+        const rawCompanies = await fetchAllPaged("getCompaniesByInfo", "getCompaniesResponse", "company", "company_name");
+        masterOutput.companies = rawCompanies.map(c => ({
+          company_id: c.companyId || c.id,
+          company_name: c.companyName || c.name,
+          amount_raised_cents: c.amountRaised || c.amount || 0,
+          amount_raised_usd: (parseFloat(c.amountRaised || c.amount || 0) / 100).toFixed(2),
+          goal_usd: (parseFloat(c.goal || 0) / 100).toFixed(2),
+          num_teams: c.teamCount || c.numTeams || 0,
+          num_participants: c.participantCount || c.numParticipants || 0
+        }));
+      } catch (e) {
+        log("  Standard search failed. Falling back to Top Companies...");
+        const topComp = await apiCall("getTopCompaniesData");
+        masterOutput.companies = toArray(topComp.getTopCompaniesDataResponse?.company);
+      }
+      document.getElementById("comp-count").textContent = masterOutput.companies.length;
+      progressBar.style.width = "40%";
+
+      // 3. Teams
+      log("3/4: Extracting all teams...");
+      const rawTeams = await fetchAllPaged("getTeamsByInfo", "getTeamsResponse", "team", "team_name");
+      masterOutput.teams = rawTeams.map(t => ({
+        team_id: t.id,
+        team_name: t.name,
+        company_id: t.companyId || null,
+        company_name: t.companyName || null,
+        captain_name: `${t.captainFirstName || ''} ${t.captainLastName || ''}`.trim(),
+        num_members: t.numMembers,
+        amount_raised_cents: t.amountRaised,
+        amount_raised_usd: (parseFloat(t.amountRaised || 0) / 100).toFixed(2),
+        goal_usd: (parseFloat(t.goal || 0) / 100).toFixed(2),
+        division: t.divisionName || null
+      }));
+      document.getElementById("team-count").textContent = masterOutput.teams.length;
+      progressBar.style.width = "70%";
+
+      // 4. Walkers / Participants
+      log("4/4: Extracting all walkers/participants...");
+      const rawWalkers = await fetchAllPaged("getParticipants", "getParticipantsResponse", "participant", "first_name");
+      masterOutput.walkers = rawWalkers.map(w => {
+        const first = w.name?.first || w.firstName || "";
+        const last = w.name?.last || w.lastName || "";
+        return {
+          cons_id: w.consId,
+          first_name: first,
+          last_name: last,
+          full_name: `${first} ${last}`.trim(),
+          team_id: w.teamId || null,
+          team_name: w.teamName || null,
+          company_id: w.companyId || null,
+          amount_raised_cents: w.amountRaised,
+          amount_raised_usd: (parseFloat(w.amountRaised || 0) / 100).toFixed(2),
+          goal_usd: (parseFloat(w.goal || 0) / 100).toFixed(2),
+          is_captain: w.isCaptain === "true" || w.isCaptain === true
+        };
+      });
+      document.getElementById("walk-count").textContent = masterOutput.walkers.length;
+      progressBar.style.width = "100%";
+
+      // Trigger automatic file download
+      log("Merging datasets and downloading combined JSON...");
+      const blob = new Blob([JSON.stringify(masterOutput, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `heart_walk_event_${FR_ID}_full_export.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      log("Extraction complete! Download started.");
+    } catch (err) {
+      log(`Error encountered: ${err.message}`);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+</script>
+
+</body>
+</html>
