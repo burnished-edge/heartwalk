@@ -2,8 +2,8 @@ name: Update Heart Walk Data
 
 on:
   schedule:
-    - cron: '0 6 * * *'  # Runs automatically every day at 6 AM UTC
-  workflow_dispatch:      # Allows manual 1-click trigger in GitHub Actions
+    - cron: '0 6 * * *'  # Runs daily at 6 AM UTC
+  workflow_dispatch:      # Allows manual 1-click trigger
 
 jobs:
   scrape:
@@ -15,7 +15,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: setup-python@v5
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
@@ -32,7 +32,7 @@ jobs:
           BASE_URL = "https://www2.heart.org/site/CRTeamraiserAPI"
 
           session = requests.Session()
-          session.headers.update({"User-Agent": "Mozilla/5.0"})
+          session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
 
           def fetch_paginated(method, extra_params, key_name, root_name):
               records = []
@@ -63,8 +63,13 @@ jobs:
                   time.sleep(0.1)
               return records
 
+          print("Fetching walkers...")
           walkers = fetch_paginated("getParticipants", {"first_name": "%%%"}, "participant", "getParticipantsResponse")
+
+          print("Fetching teams...")
           teams = fetch_paginated("getTeamsByInfo", {"team_name": "%%%"}, "team", "getTeamSearchByInfoResponse")
+
+          print("Fetching companies...")
           companies = fetch_paginated("getCompaniesByInfo", {"company_name": "%%%"}, "company", "getCompaniesResponse")
 
           dataset = {
