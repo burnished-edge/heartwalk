@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Heart Walk Full Data Extractor (GitHub Pages Compatible)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Heart Walk Event Data Extractor</title>
   <style>
     :root {
       --bg: #0f172a;
@@ -31,26 +32,26 @@
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 28px;
+      padding: 24px;
       width: 100%;
-      max-width: 640px;
+      max-width: 650px;
       box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
     }
     h2 {
       margin-top: 0;
-      margin-bottom: 8px;
-      font-size: 1.4rem;
+      margin-bottom: 6px;
+      font-size: 1.35rem;
     }
     p {
       color: var(--muted);
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       margin-top: 0;
       margin-bottom: 20px;
     }
     .grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
+      gap: 12px;
       margin-bottom: 20px;
     }
     .stat-box {
@@ -61,7 +62,7 @@
       text-align: center;
     }
     .stat-label {
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       text-transform: uppercase;
       color: var(--muted);
       letter-spacing: 0.05em;
@@ -121,8 +122,8 @@
 <body>
 
 <div class="widget-card">
-  <h2>❤️ Heart Walk Bulk Extractor</h2>
-  <p>Paginates through all companies, teams, and walkers for Event #13179 and packages them into a single consolidated JSON.</p>
+  <h2>❤️ Heart Walk Data Extractor</h2>
+  <p>Paginates through all companies, teams, and walkers for Event #13179 and exports a single structured JSON file.</p>
 
   <div class="grid">
     <div class="stat-box">
@@ -143,7 +144,7 @@
     <div class="progress-fill" id="progress"></div>
   </div>
 
-  <button id="start-btn" onclick="startExtraction()">Start Extraction & Download JSON</button>
+  <button id="start-btn" onclick="startExtraction()">Start Extraction &amp; Download JSON</button>
 
   <div id="console">Ready to begin...</div>
 </div>
@@ -169,8 +170,8 @@
     return [data];
   }
 
-  // JSONP requester to avoid CORS and 403 proxy blocks
-  function jsonp(method, extraParams = {}) {
+  // Native JSONP implementation (No proxy needed, no CORS issues)
+  function requestJSONP(method, extraParams = {}) {
     return new Promise((resolve, reject) => {
       const callbackName = "jsonp_cb_" + Math.random().toString(36).substring(2, 9);
       const params = new URLSearchParams({
@@ -188,13 +189,13 @@
 
       window[callbackName] = function (data) {
         delete window[callbackName];
-        document.body.removeChild(script);
+        script.remove();
         resolve(data);
       };
 
       script.onerror = function () {
         delete window[callbackName];
-        document.body.removeChild(script);
+        script.remove();
         reject(new Error(`JSONP request failed for ${method}`));
       };
 
@@ -202,13 +203,13 @@
     });
   }
 
-  async function fetchAllPaged(method, rootKey, itemKey, filterKey) {
-    let allRecords = [];
+  async function fetchPaged(method, rootKey, itemKey, filterKey) {
+    let records = [];
     let offset = 0;
     let total = Infinity;
 
     while (offset < total) {
-      const res = await jsonp(method, {
+      const res = await requestJSONP(method, {
         [filterKey]: "%",
         list_page_size: PAGE_SIZE,
         list_page_offset: offset
@@ -217,24 +218,22 @@
       const root = res[rootKey] || {};
       const items = toArray(root[itemKey]);
 
-      if (items.length === 0) break;
+      if (!items.length) break;
 
-      allRecords.push(...items);
+      records.push(...items);
       total = parseInt(root.totalNumberResults || 0, 10);
       offset += PAGE_SIZE;
 
-      log(`  Fetched ${allRecords.length} / ${isNaN(total) ? '?' : total} records...`);
-
-      // 250ms throttle between pagination cycles
-      await new Promise(r => setTimeout(r, 250));
+      log(`  Fetched ${records.length} / ${isNaN(total) ? '?' : total} records...`);
+      await new Promise(r => setTimeout(r, 200));
     }
 
-    return allRecords;
+    return records;
   }
 
   async function startExtraction() {
     btn.disabled = true;
-    logBox.textContent = "Starting extraction sequence via JSONP...";
+    logBox.textContent = "Starting extraction sequence...";
     progressBar.style.width = "5%";
 
     const masterOutput = {
@@ -249,33 +248,33 @@
     };
 
     try {
-      // 1. Campaign Overview
+      // 1. Campaign Details
       log("1/4: Fetching campaign data...");
       try {
-        const campData = await jsonp("getTeamraiserData");
-        masterOutput.campaign = campData.getTeamraiserDataResponse?.teamraiserData || {};
-      } catch (e) {
+        const camp = await requestJSONP("getTeamraiserData");
+        masterOutput.campaign = camp.getTeamraiserDataResponse?.teamraiserData || {};
+      } catch {
         log("  Notice: Campaign summary skipped.");
       }
-      progressBar.style.width = "15%";
+      progressBar.style.width = "20%";
 
       // 2. Companies
       log("2/4: Extracting companies...");
       try {
-        const rawCompanies = await fetchAllPaged("getCompaniesByInfo", "getCompaniesResponse", "company", "company_name");
-        masterOutput.companies = rawCompanies;
-      } catch (e) {
-        log("  Company directory blocked, falling back to top companies leaderboard...");
-        const topComp = await jsonp("getTopCompaniesData");
+        const compRecords = await fetchPaged("getCompaniesByInfo", "getCompaniesResponse", "company", "company_name");
+        masterOutput.companies = compRecords;
+      } catch {
+        log("  getCompaniesByInfo limited, falling back to top companies...");
+        const topComp = await requestJSONP("getTopCompaniesData");
         masterOutput.companies = toArray(topComp.getTopCompaniesDataResponse?.company);
       }
       document.getElementById("comp-count").textContent = masterOutput.companies.length;
-      progressBar.style.width = "35%";
+      progressBar.style.width = "40%";
 
       // 3. Teams
       log("3/4: Extracting teams...");
-      const rawTeams = await fetchAllPaged("getTeamsByInfo", "getTeamsResponse", "team", "team_name");
-      masterOutput.teams = rawTeams.map(t => ({
+      const teamRecords = await fetchPaged("getTeamsByInfo", "getTeamsResponse", "team", "team_name");
+      masterOutput.teams = teamRecords.map(t => ({
         team_id: t.id,
         team_name: t.name,
         company_id: t.companyId || null,
@@ -288,10 +287,10 @@
       document.getElementById("team-count").textContent = masterOutput.teams.length;
       progressBar.style.width = "65%";
 
-      // 4. Walkers (Participants)
-      log("4/4: Extracting walkers (1,800+ records)...");
-      const rawWalkers = await fetchAllPaged("getParticipants", "getParticipantsResponse", "participant", "first_name");
-      masterOutput.walkers = rawWalkers.map(w => {
+      // 4. Walkers / Participants
+      log("4/4: Extracting walkers...");
+      const walkerRecords = await fetchPaged("getParticipants", "getParticipantsResponse", "participant", "first_name");
+      masterOutput.walkers = walkerRecords.map(w => {
         const first = w.name?.first || w.firstName || "";
         const last = w.name?.last || w.lastName || "";
         return {
@@ -307,8 +306,8 @@
       document.getElementById("walk-count").textContent = masterOutput.walkers.length;
       progressBar.style.width = "100%";
 
-      // Download complete JSON output
-      log("Generating download file...");
+      // Download JSON
+      log("Generating download...");
       const blob = new Blob([JSON.stringify(masterOutput, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -319,7 +318,7 @@
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      log("Extraction complete! File downloaded.");
+      log(`Extraction complete! Saved ${masterOutput.walkers.length} walkers, ${masterOutput.teams.length} teams, and ${masterOutput.companies.length} companies.`);
     } catch (err) {
       log(`Error encountered: ${err.message}`);
     } finally {
