@@ -2,8 +2,9 @@ name: Update Heart Walk Data
 
 on:
   schedule:
-    - cron: '0 6 * * *'  # Runs automatically every day at 6 AM UTC
-  workflow_dispatch:      # Allows manual 1-click trigger in GitHub Actions
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+  repository_dispatch:
 
 jobs:
   scrape:
@@ -15,7 +16,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: setup-python@v5
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
@@ -32,12 +33,13 @@ jobs:
           BASE_URL = "https://www2.heart.org/site/CRTeamraiserAPI"
 
           session = requests.Session()
-          session.headers.update({"User-Agent": "Mozilla/5.0"})
+          session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
 
           def fetch_paginated(method, extra_params, key_name, root_name):
               records = []
-              offset = 0
+              page_idx = 0
               page_size = 500
+
               while True:
                   params = {
                       "method": method,
@@ -45,30 +47,50 @@ jobs:
                       "v": "1.0",
                       "response_format": "json",
                       "fr_id": FR_ID,
-                      "list_page_size": page_size,
-                      "list_page_offset": offset,
+                      "list_page_size": str(page_size),
+                      "list_page_offset": str(page_idx),
                       **extra_params
                   }
-                  res = session.get(BASE_URL, params=params)
+
+                  print(f"[{method}] Requesting page {page_idx}...")
+                  res = session.get(BASE_URL, params=params, timeout=30)
                   res.raise_for_status()
                   data = res.json().get(root_name, {})
-                  total = int(data.get("totalNumberResults", 0))
+
                   items = data.get(key_name, [])
                   if isinstance(items, dict):
                       items = [items]
-                  records.extend(items)
-                  offset += page_size
-                  if offset >= total or not items:
+
+                  if not items:
+                      print(f"[{method}] Page {page_idx} returned empty. Reached end of data.")
                       break
-                  time.sleep(0.1)
+
+                  records.extend(items)
+                  total = int(data.get("totalNumberResults", len(records)))
+                  print(f"[{method}] Got {len(items)} items on page {page_idx}. Total accumulated: {len(records)}/{total}")
+
+                  page_idx += 1
+                  if len(records) >= total or len(items) < page_size:
+                      break
+
+                  time.sleep(0.15)
+
               return records
 
+          print("--- Fetching Walkers ---")
           walkers = fetch_paginated("getParticipants", {"first_name": "%%%"}, "participant", "getParticipantsResponse")
+          print(f"Total Walkers: {len(walkers)}")
+
+          print("--- Fetching Teams ---")
           teams = fetch_paginated("getTeamsByInfo", {"team_name": "%%%"}, "team", "getTeamSearchByInfoResponse")
+          print(f"Total Teams: {len(teams)}")
+
+          print("--- Fetching Companies ---")
           companies = fetch_paginated("getCompaniesByInfo", {"company_name": "%%%"}, "company", "getCompaniesResponse")
+          print(f"Total Companies: {len(companies)}")
 
           dataset = {
-              "updated_at": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
+              "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
               "walkers": walkers,
               "teams": teams,
               "companies": companies
@@ -76,7 +98,8 @@ jobs:
 
           with open("heartwalk_data.json", "w", encoding="utf-8") as f:
               json.dump(dataset, f, indent=2)
-          print("Saved heartwalk_data.json successfully")
+
+          print("Saved heartwalk_data.json successfully.")
           EOF
 
       - name: Commit and push changes
@@ -84,4 +107,4 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add heartwalk_data.json
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update Heart Walk data" && git push)
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update Heart Walk data [$(date -u +'%Y-%m-%d %H:%M')]" && git push)
